@@ -9,8 +9,6 @@ import {
   TrendingDown,
   MapPin,
   Users,
-  Copy,
-  Check,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useCommunities } from '@/context/CommunityContext';
@@ -23,7 +21,6 @@ export default function Dashboard() {
   const { activeId } = useCommunities();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!activeId) return;
@@ -42,12 +39,6 @@ export default function Dashboard() {
   const lastMeetingTopics = resolvedTopics.filter(
     (t) => t.meeting && lastHeldMeeting && t.meeting === lastHeldMeeting._id
   );
-
-  const copyCode = () => {
-    navigator.clipboard.writeText(community.joinCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
 
   return (
     <div>
@@ -217,22 +208,19 @@ export default function Dashboard() {
           <CardContent className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Presidente/a</span>
-              <span className="font-medium">{community.president?.name || '—'}</span>
+              <span className="font-medium">{community.president?.name || 'Sin asignar'}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Administrador</span>
-              <span className="font-medium">{community.administrator?.name || 'Sin asignar'}</span>
+              <span className="font-medium">
+                {community.administrators?.length
+                  ? community.administrators.map((a) => a.name).join(', ')
+                  : 'Sin asignar'}
+              </span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Código para invitar</span>
-              <button
-                onClick={copyCode}
-                className="flex items-center gap-1.5 rounded-md bg-secondary px-2 py-1 font-mono text-xs font-semibold hover:bg-accent"
-              >
-                {community.joinCode}
-                {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
-              </button>
-            </div>
+            <Link to="/vecinos" className="block text-sm font-medium text-primary hover:underline">
+              Ver vecinos e invitaciones →
+            </Link>
           </CardContent>
         </Card>
       </div>

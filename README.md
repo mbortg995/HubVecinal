@@ -1,21 +1,34 @@
 # HubVecinal
 
-Aplicación web que conecta a los **propietarios** de una comunidad con sus **administradores de finca**. Un hub donde ver de un vistazo:
+Plataforma **SaaS multi-tenant** que conecta a los **propietarios** de una comunidad con sus **administradores de finca**. Una administradora (organización) puede gestionar muchas comunidades, todas aisladas entre sí. Un hub donde ver de un vistazo:
 
 - 📅 Las **próximas juntas vecinales** y las ya celebradas (con acta).
 - 💰 El **dinero en las arcas comunes** y todos sus movimientos.
 - ✅ Los **temas pendientes** de resolver y los **resueltos** en la última junta.
-- 👥 Los **vecinos** vinculados a la comunidad.
+- 👥 Los **vecinos** de la comunidad y las **invitaciones** pendientes.
+
+## Arquitectura multi-tenant
+
+- **Organización (`Organization`)**: la administradora de fincas. Es el *tenant*; cada comunidad pertenece a una organización y los datos quedan aislados entre administradoras.
+- **Membresía (`Membership`)**: relación usuario ↔ comunidad. El **rol vive en la membresía**, no en el usuario, así una persona puede tener distintos roles en distintas comunidades.
+- **Invitación (`Invitation`)**: alta de usuarios por invitación con token. El invitado abre el enlace y completa (o ya tiene) su cuenta.
 
 ## Roles
 
-| Rol | Qué puede hacer |
-| --- | --- |
-| **Propietario** | Vincula su vivienda a una comunidad (con un código), consulta toda la información. |
-| **Presidente** | Es un propietario que *crea* la comunidad. Gestiona juntas, arcas, temas y asigna administrador. |
-| **Administrador de fincas** | Cuenta especial. Una vez asignado por un presidente, gestiona la comunidad igual que el presidente. |
+| Rol | Nivel | Qué puede hacer |
+| --- | --- | --- |
+| **Superadmin** | Plataforma | Personal de la administradora. Crea y gestiona **todas** las comunidades de su organización; invita presidentes, admins y propietarios. |
+| **Administrador** | Comunidad | Administrador de fincas asignado a comunidades concretas. Las gestiona como el presidente. |
+| **Presidente** | Comunidad | Propietario que preside su comunidad. Gestiona juntas, arcas, temas e invita propietarios. |
+| **Propietario** | Comunidad | Acceso de solo lectura a la información de su comunidad. |
 
-Solo el presidente y el administrador pueden crear/editar/borrar; los demás propietarios tienen acceso de solo lectura.
+Superadmin, administrador y presidente pueden crear/editar/borrar; los propietarios tienen acceso de solo lectura. Solo un superadmin puede crear comunidades, eliminarlas e invitar a otros administradores.
+
+## Onboarding (por invitación)
+
+1. Una administradora se da de alta en `/registro-organizacion` → se crea la **organización** y su primer **superadmin**.
+2. El superadmin crea comunidades y **invita** por email (presidente, admin o propietario).
+3. El invitado abre el enlace `/invitar/:token`, crea su contraseña y queda vinculado a la comunidad con su rol.
 
 ## Stack
 
@@ -63,13 +76,14 @@ Contraseña para todos: **`password123`**
 
 | Email | Rol |
 | --- | --- |
-| `presidente@hubvecinal.dev` | Presidente de "Comunidad Los Olivos" |
-| `admin@hubvecinal.dev` | Administrador de fincas (asignado a esa comunidad) |
+| `super@hubvecinal.dev` | **Superadmin** de "Administraciones García" (gestiona Los Olivos y Los Robles) |
+| `admin@hubvecinal.dev` | Administrador de fincas (asignado a ambas comunidades) |
+| `presidente@hubvecinal.dev` | Presidente de "Los Olivos" (3ºB) |
 | `carlos@hubvecinal.dev` | Propietario (1ºA) |
 | `marta@hubvecinal.dev` | Propietario (2ºC) |
 | `javier@hubvecinal.dev` | Propietario (4ºA) |
 
-Código para unirse a la comunidad de ejemplo: **`OLIVOS24`**
+Además se crea una **invitación pendiente** de ejemplo para `nuevo.vecino@hubvecinal.dev` (visible en la pestaña *Vecinos* al entrar como superadmin/presidente, con su enlace copiable).
 
 ## API (resumen)
 
@@ -77,19 +91,22 @@ Todas las rutas bajo `/api`. Las de comunidad requieren cabecera `Authorization:
 
 | Método | Ruta | Descripción |
 | --- | --- | --- |
-| POST | `/auth/register` | Crear cuenta (`role`: `owner` \| `admin`) |
+| POST | `/auth/register-organization` | Alta de administradora (organización + superadmin) |
 | POST | `/auth/login` | Iniciar sesión |
-| GET | `/auth/me` | Usuario actual |
-| GET | `/communities/mine` | Comunidades del usuario |
-| POST | `/communities` | Crear comunidad (pasas a ser presidente) |
-| POST | `/communities/join` | Unirse con `joinCode` |
+| GET | `/auth/me` | Usuario actual + organización + membresías |
+| GET | `/communities/mine` | Comunidades a las que accede el usuario, con su rol |
+| POST | `/communities` | Crear comunidad *(superadmin)* |
 | GET | `/communities/:id` | Detalle + resumen del hub |
 | PATCH | `/communities/:id` | Editar datos *(gestores)* |
-| POST | `/communities/:id/admin` | Asignar administrador por email *(gestores)* |
+| DELETE | `/communities/:id` | Eliminar comunidad y sus datos *(superadmin)* |
+| GET | `/communities/:id/members` | Vecinos (membresías) |
+| DELETE | `/communities/:id/members/:mid` | Quitar a un miembro *(gestores)* |
+| GET/POST/DELETE | `/communities/:id/invitations` | Invitaciones *(gestores)* |
+| GET | `/invitations/:token` | Datos públicos de una invitación |
+| POST | `/invitations/:token/accept` | Aceptar invitación (crea cuenta + membresía) |
 | GET/POST/PATCH/DELETE | `/communities/:id/meetings` | Juntas |
 | GET/POST/PATCH/DELETE | `/communities/:id/topics` | Temas |
 | GET/POST/DELETE | `/communities/:id/transactions` | Movimientos de arcas |
-| GET | `/communities/:id/members` | Vecinos |
 
 ## Próximos pasos (despliegue en la nube)
 

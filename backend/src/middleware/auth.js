@@ -21,12 +21,10 @@ export async function requireAuth(req, res, next) {
   }
 }
 
-// Restringe a determinados roles globales ('owner' | 'admin').
-export function requireRole(...roles) {
-  return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ message: 'No tienes permisos para esta acción' });
-    }
-    next();
-  };
+// Restringe a superadmins (personal de una administradora).
+export function requireSuperadmin(req, res, next) {
+  if (req.user.platformRole !== 'superadmin' || !req.user.organization) {
+    return res.status(403).json({ message: 'Solo un superadmin puede realizar esta acción' });
+  }
+  next();
 }

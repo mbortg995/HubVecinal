@@ -1,28 +1,27 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireSuperadmin } from '../middleware/auth.js';
 import { loadCommunity, requireManage } from '../middleware/community.js';
 import {
   createCommunity,
-  joinCommunity,
-  leaveCommunity,
   myCommunities,
   getCommunity,
   listMembers,
-  assignAdmin,
   updateCommunity,
+  deleteCommunity,
+  removeMember,
 } from '../controllers/communityController.js';
+import {
+  createInvitation,
+  listInvitations,
+  revokeInvitation,
+} from '../controllers/invitationController.js';
 import {
   listMeetings,
   createMeeting,
   updateMeeting,
   deleteMeeting,
 } from '../controllers/meetingController.js';
-import {
-  listTopics,
-  createTopic,
-  updateTopic,
-  deleteTopic,
-} from '../controllers/topicController.js';
+import { listTopics, createTopic, updateTopic, deleteTopic } from '../controllers/topicController.js';
 import {
   listTransactions,
   createTransaction,
@@ -31,22 +30,27 @@ import {
 
 const router = Router();
 
-// Todo lo de comunidades requiere autenticación.
 router.use(requireAuth);
 
 // Acciones globales del usuario.
 router.get('/mine', myCommunities);
-router.post('/', createCommunity);
-router.post('/join', joinCommunity);
+router.post('/', requireSuperadmin, createCommunity);
 
 // A partir de aquí se opera sobre una comunidad concreta.
 router.use('/:communityId', loadCommunity);
 
 router.get('/:communityId', getCommunity);
 router.patch('/:communityId', requireManage, updateCommunity);
+router.delete('/:communityId', deleteCommunity);
+
+// Vecinos / membresías.
 router.get('/:communityId/members', listMembers);
-router.post('/:communityId/admin', requireManage, assignAdmin);
-router.post('/:communityId/leave', leaveCommunity);
+router.delete('/:communityId/members/:membershipId', requireManage, removeMember);
+
+// Invitaciones.
+router.get('/:communityId/invitations', requireManage, listInvitations);
+router.post('/:communityId/invitations', requireManage, createInvitation);
+router.delete('/:communityId/invitations/:invitationId', requireManage, revokeInvitation);
 
 // Juntas vecinales.
 router.get('/:communityId/meetings', listMeetings);

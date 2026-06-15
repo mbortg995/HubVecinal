@@ -1,28 +1,38 @@
 import Community from '../models/Community.js';
+import Membership from '../models/Membership.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
-// Carga la comunidad de :communityId, verifica que el usuario tiene acceso
-// y calcula si puede gestionarla (presidente o administrador asignado).
+// Devuelve el rol efectivo del usuario sobre una comunidad, o null si no tiene acceso.
+//  - Un superadmin de la organización dueña de la comunidad → 'superadmin'.
+//  - En caso contrario, el rol de su membresía ('admin' | 'president' | 'owner').
+export async function resolveRole(user, community) {
+  if (
+    user.platformRole === 'superadmin' &&
+    user.organization &&
+    community.organization?.toString() === user.organization.toString()
+  ) {
+    return 'superadmin';
+  }
+  const membership = await Membership.findOne({ user: user._id, community: community._id });
+  return membership ? membership.role : null;
+}
+
+// Carga la comunidad de :communityId, verifica el acceso y calcula los permisos.
 export const loadCommunity = asyncHandler(async (req, res, next) => {
   const community = await Community.findById(req.params.communityId);
   if (!community) {
     return res.status(404).json({ message: 'Comunidad no encontrada' });
   }
 
-  const userId = req.user._id.toString();
-  const isPresident = community.president?.toString() === userId;
-  const isAdmin =
-    req.user.role === 'admin' && community.administrator?.toString() === userId;
-  const isMember =
-    req.user.role === 'owner' && req.user.community?.toString() === community._id.toString();
-
-  if (!isPresident && !isAdmin && !isMember) {
-    return res.status(403).json({ message: 'No perteneces a esta comunidad' });
+  const role = await resolveRole(req.user, community);
+  if (!role) {
+    return res.status(403).json({ message: 'No tienes acceso a esta comunidad' });
   }
 
   req.community = community;
-  // Presidente y administrador asignado pueden crear/editar/borrar.
-  req.canManage = isPresident || isAdmin;
+  req.communityRole = role;
+  // Superadmin, admin y presidente pueden crear/editar/borrar. Owner es solo lectura.
+  req.canManage = role === 'superadmin' || role === 'admin' || role === 'president';
   next();
 });
 

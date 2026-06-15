@@ -1,20 +1,39 @@
 import User from '../models/User.js';
+import Organization from '../models/Organization.js';
+import Membership from '../models/Membership.js';
 import { signToken } from '../utils/token.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
-// POST /api/auth/register
-export const register = asyncHandler(async (req, res) => {
-  const { name, email, password, role } = req.body;
-  if (!name || !email || !password) {
-    return res.status(400).json({ message: 'Nombre, email y contraseña son obligatorios' });
+// POST /api/auth/register-organization
+// Alta de una administradora: crea la organización y su primer superadmin.
+export const registerOrganization = asyncHandler(async (req, res) => {
+  const { organizationName, name, email, password } = req.body;
+  if (!organizationName || !name || !email || !password) {
+    return res
+      .status(400)
+      .json({ message: 'Nombre de la organización, nombre, email y contraseña son obligatorios' });
   }
 
-  // Solo se permite registrar 'owner' o 'admin'.
-  const safeRole = role === 'admin' ? 'admin' : 'owner';
+  const exists = await User.findOne({ email: email.toLowerCase() });
+  if (exists) {
+    return res.status(409).json({ message: 'Ya existe una cuenta con ese email' });
+  }
 
-  const user = await User.create({ name, email, password, role: safeRole });
+  const organization = await Organization.create({ name: organizationName, contactEmail: email });
+
+  const user = await User.create({
+    name,
+    email,
+    password,
+    platformRole: 'superadmin',
+    organization: organization._id,
+  });
+
+  organization.createdBy = user._id;
+  await organization.save();
+
   const token = signToken(user);
-  res.status(201).json({ token, user: user.toSafeObject() });
+  res.status(201).json({ token, user: user.toSafeObject(), organization });
 });
 
 // POST /api/auth/login
@@ -33,8 +52,9 @@ export const login = asyncHandler(async (req, res) => {
   res.json({ token, user: user.toSafeObject() });
 });
 
-// GET /api/auth/me
+// GET /api/auth/me  → usuario + organización (si superadmin) + sus membresías.
 export const me = asyncHandler(async (req, res) => {
-  const user = await req.user.populate('community');
-  res.json({ user: user.toSafeObject() });
+  const user = await req.user.populate('organization');
+  const memberships = await Membership.find({ user: user._id }).select('community role unit');
+  res.json({ user: user.toSafeObject(), memberships });
 });

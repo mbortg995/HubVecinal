@@ -2,7 +2,8 @@ import { Routes, Route } from 'react-router-dom';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { AppLayout } from './components/AppLayout';
 import Login from './pages/Login';
-import Register from './pages/Register';
+import RegisterOrganization from './pages/RegisterOrganization';
+import AcceptInvitation from './pages/AcceptInvitation';
 import Onboarding from './pages/Onboarding';
 import Dashboard from './pages/Dashboard';
 import Meetings from './pages/Meetings';
@@ -15,7 +16,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route path="/registro-organizacion" element={<RegisterOrganization />} />
+      <Route path="/invitar/:token" element={<AcceptInvitation />} />
       <Route
         path="/onboarding"
         element={

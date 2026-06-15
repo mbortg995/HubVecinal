@@ -6,12 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
 
-export default function Register() {
-  const { register } = useAuth();
+export default function RegisterOrganization() {
+  const { registerOrganization } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'owner' });
+  const [form, setForm] = useState({ organizationName: '', name: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -22,10 +21,10 @@ export default function Register() {
     setError('');
     setLoading(true);
     try {
-      await register(form);
+      await registerOrganization(form);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.message || 'No se pudo crear la cuenta');
+      setError(err.response?.data?.message || 'No se pudo crear la organización');
     } finally {
       setLoading(false);
     }
@@ -39,17 +38,31 @@ export default function Register() {
             <Building2 className="h-6 w-6" />
           </div>
           <h1 className="text-2xl font-bold">HubVecinal</h1>
+          <p className="text-sm text-muted-foreground">Da de alta tu administradora de fincas</p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Crear cuenta</CardTitle>
-            <CardDescription>Regístrate como propietario o administrador de fincas</CardDescription>
+            <CardTitle>Nueva organización</CardTitle>
+            <CardDescription>
+              Crea la cuenta de tu administradora. Serás el <strong>superadmin</strong> y podrás dar de
+              alta y gestionar todas tus comunidades.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="name">Nombre completo</Label>
+                <Label htmlFor="organizationName">Nombre de la administradora</Label>
+                <Input
+                  id="organizationName"
+                  value={form.organizationName}
+                  onChange={update('organizationName')}
+                  placeholder="Ej. Administraciones García"
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="name">Tu nombre</Label>
                 <Input id="name" value={form.name} onChange={update('name')} required />
               </div>
               <div className="space-y-1.5">
@@ -67,34 +80,9 @@ export default function Register() {
                   required
                 />
               </div>
-
-              <div className="space-y-1.5">
-                <Label>Tipo de cuenta</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { value: 'owner', label: 'Propietario' },
-                    { value: 'admin', label: 'Administrador' },
-                  ].map((opt) => (
-                    <button
-                      type="button"
-                      key={opt.value}
-                      onClick={() => setForm((f) => ({ ...f, role: opt.value }))}
-                      className={cn(
-                        'rounded-md border px-3 py-2 text-sm font-medium transition-colors',
-                        form.role === opt.value
-                          ? 'border-primary bg-primary/10 text-primary'
-                          : 'border-input hover:bg-accent'
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {error && <p className="text-sm text-destructive">{error}</p>}
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Creando…' : 'Crear cuenta'}
+                {loading ? 'Creando…' : 'Crear organización'}
               </Button>
             </form>
             <p className="mt-4 text-center text-sm text-muted-foreground">

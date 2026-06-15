@@ -36,18 +36,24 @@ export function CommunityProvider({ children }) {
 
   const active = communities.find((c) => c._id === activeId) || null;
 
-  // ¿El usuario puede gestionar la comunidad activa? (presidente o admin asignado)
-  const userId = user?._id;
-  const canManage = Boolean(
-    active &&
-      userId &&
-      (String(active.president) === String(userId) ||
-        (user?.role === 'admin' && String(active.administrator) === String(userId)))
-  );
+  // El rol efectivo viene del backend en cada comunidad ('superadmin'|'admin'|'president'|'owner').
+  const role = active?.role || null;
+  const canManage = role === 'superadmin' || role === 'admin' || role === 'president';
+  const isSuperadmin = user?.platformRole === 'superadmin';
 
   return (
     <CommunityContext.Provider
-      value={{ communities, active, activeId, setActiveId, loading, reload: load, canManage }}
+      value={{
+        communities,
+        active,
+        activeId,
+        setActiveId,
+        loading,
+        reload: load,
+        role,
+        canManage,
+        isSuperadmin,
+      }}
     >
       {children}
     </CommunityContext.Provider>
