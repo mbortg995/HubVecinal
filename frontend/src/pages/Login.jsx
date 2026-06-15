@@ -75,16 +75,19 @@ export default function Login() {
               </Button>
             </form>
             <p className="mt-4 text-center text-sm text-muted-foreground">
-              ¿No tienes cuenta?{' '}
-              <Link to="/register" className="font-medium text-primary hover:underline">
-                Regístrate
+              ¿Eres una administradora de fincas?{' '}
+              <Link to="/registro-organizacion" className="font-medium text-primary hover:underline">
+                Da de alta tu organización
               </Link>
+            </p>
+            <p className="mt-1 text-center text-xs text-muted-foreground">
+              Los propietarios acceden mediante invitación.
             </p>
           </CardContent>
         </Card>
 
         <p className="mt-4 text-center text-xs text-muted-foreground">
-          Demo: presidente@hubvecinal.dev · admin@hubvecinal.dev · carlos@hubvecinal.dev
+          Demo: super@hubvecinal.dev (superadmin) · presidente@hubvecinal.dev · carlos@hubvecinal.dev
           <br />
           Contraseña: password123
         </p>

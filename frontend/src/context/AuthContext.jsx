@@ -37,11 +37,18 @@ export function AuthProvider({ children }) {
     [handleAuthResponse]
   );
 
-  const register = useCallback(
+  // Alta de una administradora (organización + primer superadmin).
+  const registerOrganization = useCallback(
     async (payload) => {
-      const { data } = await api.post('/auth/register', payload);
+      const { data } = await api.post('/auth/register-organization', payload);
       return handleAuthResponse(data);
     },
+    [handleAuthResponse]
+  );
+
+  // Inicia sesión a partir de la respuesta de aceptar una invitación.
+  const setSession = useCallback(
+    (data) => handleAuthResponse(data),
     [handleAuthResponse]
   );
 
@@ -57,7 +64,9 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, registerOrganization, setSession, logout, refreshUser }}
+    >
       {children}
     </AuthContext.Provider>
   );

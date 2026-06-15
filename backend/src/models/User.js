@@ -12,24 +12,22 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
     password: { type: String, required: true, minlength: 6, select: false },
-    // Rol global de la cuenta:
-    //  - 'owner': propietario de una vivienda.
-    //  - 'admin': administrador de fincas (cuenta especial).
-    role: {
+    // Rol a nivel de plataforma:
+    //  - 'superadmin': pertenece a una organización (administradora) y gestiona
+    //                  TODAS las comunidades de esa organización.
+    //  - 'member'    : usuario normal; sus permisos provienen de sus membresías
+    //                  por comunidad (ver modelo Membership).
+    platformRole: {
       type: String,
-      enum: ['owner', 'admin'],
-      default: 'owner',
+      enum: ['superadmin', 'member'],
+      default: 'member',
     },
-    // Vínculo del propietario con su comunidad (solo aplica a role 'owner').
-    community: {
+    // Organización a la que pertenece (solo para superadmins / personal de la administradora).
+    organization: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Community',
+      ref: 'Organization',
       default: null,
     },
-    // Vivienda concreta dentro de la comunidad, p.ej. "3ºB".
-    unit: { type: String, trim: true, default: '' },
-    // True si este propietario es el presidente de su comunidad.
-    isPresident: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

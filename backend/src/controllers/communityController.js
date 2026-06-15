@@ -1,20 +1,15 @@
 import Community from '../models/Community.js';
-import User from '../models/User.js';
+import Membership from '../models/Membership.js';
 import Meeting from '../models/Meeting.js';
 import Topic from '../models/Topic.js';
 import Transaction from '../models/Transaction.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
 // Calcula el saldo actual de las arcas a partir de las transacciones.
-async function computeBalance(communityId) {
+export async function computeBalance(communityId) {
   const result = await Transaction.aggregate([
     { $match: { community: communityId } },
-    {
-      $group: {
-        _id: '$type',
-        total: { $sum: '$amount' },
-      },
-    },
+    { $group: { _id: '$type', total: { $sum: '$amount' } } },
   ]);
   let income = 0;
   let expense = 0;
@@ -25,91 +20,63 @@ async function computeBalance(communityId) {
   return { income, expense, balance: income - expense };
 }
 
-export { computeBalance };
-
-// POST /api/communities  → un propietario crea su comunidad y pasa a ser presidente.
+// POST /api/communities  → un superadmin crea una comunidad dentro de su organización.
 export const createCommunity = asyncHandler(async (req, res) => {
-  if (req.user.role !== 'owner') {
-    return res.status(403).json({ message: 'Solo un propietario puede crear una comunidad' });
-  }
-  if (req.user.community) {
-    return res.status(409).json({ message: 'Ya perteneces a una comunidad' });
-  }
-
-  const { name, address, unit } = req.body;
+  const { name, address } = req.body;
   if (!name) {
     return res.status(400).json({ message: 'El nombre de la comunidad es obligatorio' });
   }
-
   const community = await Community.create({
     name,
     address: address || '',
-    president: req.user._id,
+    organization: req.user.organization,
+    createdBy: req.user._id,
   });
-
-  req.user.community = community._id;
-  req.user.unit = unit || '';
-  req.user.isPresident = true;
-  await req.user.save();
-
   res.status(201).json({ community });
 });
 
-// POST /api/communities/join  → un propietario se une mediante joinCode.
-export const joinCommunity = asyncHandler(async (req, res) => {
-  if (req.user.role !== 'owner') {
-    return res.status(403).json({ message: 'Solo los propietarios pueden unirse a una comunidad' });
-  }
-  if (req.user.community) {
-    return res.status(409).json({ message: 'Ya perteneces a una comunidad' });
-  }
-
-  const { joinCode, unit } = req.body;
-  const community = await Community.findOne({ joinCode: (joinCode || '').toUpperCase().trim() });
-  if (!community) {
-    return res.status(404).json({ message: 'No existe ninguna comunidad con ese código' });
-  }
-
-  req.user.community = community._id;
-  req.user.unit = unit || '';
-  req.user.isPresident = false;
-  await req.user.save();
-
-  res.json({ community });
-});
-
-// POST /api/communities/:communityId/leave  → el propietario abandona su comunidad.
-export const leaveCommunity = asyncHandler(async (req, res) => {
-  if (req.user.community?.toString() !== req.params.communityId) {
-    return res.status(400).json({ message: 'No perteneces a esta comunidad' });
-  }
-  req.user.community = null;
-  req.user.unit = '';
-  req.user.isPresident = false;
-  await req.user.save();
-  res.json({ message: 'Has abandonado la comunidad' });
-});
-
-// GET /api/communities/mine  → comunidades relevantes para el usuario actual.
+// GET /api/communities/mine  → comunidades a las que el usuario tiene acceso, con su rol.
 export const myCommunities = asyncHandler(async (req, res) => {
   let communities = [];
-  if (req.user.role === 'admin') {
-    communities = await Community.find({ administrator: req.user._id });
-  } else if (req.user.community) {
-    const c = await Community.findById(req.user.community);
-    if (c) communities = [c];
+  const roleByCommunity = new Map();
+
+  if (req.user.platformRole === 'superadmin' && req.user.organization) {
+    communities = await Community.find({ organization: req.user.organization });
+    communities.forEach((c) => roleByCommunity.set(c._id.toString(), 'superadmin'));
+  } else {
+    const memberships = await Membership.find({ user: req.user._id }).populate('community');
+    communities = memberships.filter((m) => m.community).map((m) => m.community);
+    memberships.forEach((m) => {
+      if (m.community) roleByCommunity.set(m.community._id.toString(), m.role);
+    });
   }
 
   const enriched = await Promise.all(
     communities.map(async (c) => {
       const funds = await computeBalance(c._id);
-      const memberCount = await User.countDocuments({ community: c._id });
-      return { ...c.toObject(), funds, memberCount };
+      const memberCount = await Membership.countDocuments({ community: c._id });
+      return {
+        ...c.toObject(),
+        role: roleByCommunity.get(c._id.toString()),
+        funds,
+        memberCount,
+      };
     })
   );
 
   res.json({ communities: enriched });
 });
+
+// Devuelve presidente y administradores derivados de las membresías.
+async function getLeadership(communityId) {
+  const leaders = await Membership.find({
+    community: communityId,
+    role: { $in: ['president', 'admin'] },
+  }).populate('user', 'name email');
+  const president = leaders.find((m) => m.role === 'president')?.user || null;
+  const administrators = leaders.filter((m) => m.role === 'admin').map((m) => m.user);
+  return { president, administrators };
+}
 
 // GET /api/communities/:communityId  → detalle + resumen (el hub).
 export const getCommunity = asyncHandler(async (req, res) => {
@@ -140,12 +107,11 @@ export const getCommunity = asyncHandler(async (req, res) => {
     .sort({ updatedAt: -1 })
     .limit(10);
 
-  const populated = await Community.findById(community._id)
-    .populate('president', 'name email')
-    .populate('administrator', 'name email');
+  const { president, administrators } = await getLeadership(community._id);
 
   res.json({
-    community: populated,
+    community: { ...community.toObject(), president, administrators },
+    role: req.communityRole,
     canManage: req.canManage,
     funds,
     upcomingMeetings,
@@ -157,22 +123,17 @@ export const getCommunity = asyncHandler(async (req, res) => {
 
 // GET /api/communities/:communityId/members
 export const listMembers = asyncHandler(async (req, res) => {
-  const members = await User.find({ community: req.community._id }).select(
-    'name email unit isPresident role'
+  const memberships = await Membership.find({ community: req.community._id }).populate(
+    'user',
+    'name email'
   );
+  const members = memberships.map((m) => ({
+    _id: m._id,
+    user: m.user,
+    role: m.role,
+    unit: m.unit,
+  }));
   res.json({ members });
-});
-
-// POST /api/communities/:communityId/admin  → el presidente asigna un administrador por email.
-export const assignAdmin = asyncHandler(async (req, res) => {
-  const { email } = req.body;
-  const admin = await User.findOne({ email: (email || '').toLowerCase().trim() });
-  if (!admin || admin.role !== 'admin') {
-    return res.status(404).json({ message: 'No existe ninguna cuenta de administrador con ese email' });
-  }
-  req.community.administrator = admin._id;
-  await req.community.save();
-  res.json({ message: 'Administrador asignado correctamente' });
 });
 
 // PATCH /api/communities/:communityId  → actualizar datos básicos.
@@ -182,4 +143,33 @@ export const updateCommunity = asyncHandler(async (req, res) => {
   if (address !== undefined) req.community.address = address;
   await req.community.save();
   res.json({ community: req.community });
+});
+
+// DELETE /api/communities/:communityId  → solo superadmin. Borra la comunidad y sus datos.
+export const deleteCommunity = asyncHandler(async (req, res) => {
+  if (req.communityRole !== 'superadmin') {
+    return res.status(403).json({ message: 'Solo un superadmin puede eliminar una comunidad' });
+  }
+  const id = req.community._id;
+  await Promise.all([
+    Meeting.deleteMany({ community: id }),
+    Topic.deleteMany({ community: id }),
+    Transaction.deleteMany({ community: id }),
+    Membership.deleteMany({ community: id }),
+  ]);
+  await req.community.deleteOne();
+  res.json({ message: 'Comunidad eliminada' });
+});
+
+// DELETE /api/communities/:communityId/members/:membershipId  → quitar a un vecino (gestores).
+export const removeMember = asyncHandler(async (req, res) => {
+  const membership = await Membership.findOne({
+    _id: req.params.membershipId,
+    community: req.community._id,
+  });
+  if (!membership) {
+    return res.status(404).json({ message: 'Miembro no encontrado' });
+  }
+  await membership.deleteOne();
+  res.json({ message: 'Miembro eliminado de la comunidad' });
 });

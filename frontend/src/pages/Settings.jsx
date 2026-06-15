@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Copy, Check, LogOut } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useCommunities } from '@/context/CommunityContext';
@@ -10,15 +10,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
+const roleLabels = {
+  superadmin: 'Superadmin',
+  admin: 'Administrador',
+  president: 'Presidente',
+  owner: 'Propietario',
+};
+
 export default function Settings() {
-  const { activeId, canManage, reload } = useCommunities();
-  const { user, refreshUser } = useAuth();
+  const { activeId, canManage, role, isSuperadmin, reload } = useCommunities();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [form, setForm] = useState({ name: '', address: '' });
-  const [adminEmail, setAdminEmail] = useState('');
   const [msg, setMsg] = useState('');
-  const [copied, setCopied] = useState(false);
 
   const fetchDetail = () => {
     if (!activeId) return;
@@ -47,30 +52,12 @@ export default function Settings() {
     flash('Datos de la comunidad actualizados');
   };
 
-  const assignAdmin = async (e) => {
-    e.preventDefault();
-    try {
-      await api.post(`/communities/${activeId}/admin`, { email: adminEmail });
-      setAdminEmail('');
-      fetchDetail();
-      flash('Administrador asignado');
-    } catch (err) {
-      flash(err.response?.data?.message || 'No se pudo asignar');
-    }
-  };
-
-  const leave = async () => {
-    if (!confirm('¿Seguro que quieres abandonar esta comunidad?')) return;
-    await api.post(`/communities/${activeId}/leave`);
-    await refreshUser();
+  const deleteCommunity = async () => {
+    if (!confirm(`¿Eliminar "${community.name}" y todos sus datos? Esta acción no se puede deshacer.`))
+      return;
+    await api.delete(`/communities/${activeId}`);
     await reload();
-    navigate('/onboarding', { replace: true });
-  };
-
-  const copyCode = () => {
-    navigator.clipboard.writeText(community.joinCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    navigate('/', { replace: true });
   };
 
   return (
@@ -82,26 +69,29 @@ export default function Settings() {
       )}
 
       <div className="space-y-6">
-        {/* Código de invitación */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Código de invitación</CardTitle>
-            <CardDescription>
-              Comparte este código con los propietarios para que se unan a la comunidad.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <button
-              onClick={copyCode}
-              className="flex items-center gap-2 rounded-md bg-secondary px-4 py-2 font-mono text-lg font-semibold hover:bg-accent"
-            >
-              {community.joinCode}
-              {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
-            </button>
-          </CardContent>
-        </Card>
+        {/* Organización (superadmin) */}
+        {isSuperadmin && user?.organization && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Organización</CardTitle>
+              <CardDescription>Administradora de fincas a la que pertenecen tus comunidades.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Nombre</span>
+                <span className="font-medium">{user.organization.name}</span>
+              </div>
+              {user.organization.contactEmail && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Contacto</span>
+                  <span className="font-medium">{user.organization.contactEmail}</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Datos de la comunidad (solo gestores) */}
+        {/* Datos de la comunidad (gestores) */}
         {canManage && (
           <Card>
             <CardHeader>
@@ -131,34 +121,6 @@ export default function Settings() {
           </Card>
         )}
 
-        {/* Asignar administrador (solo presidente/gestor) */}
-        {canManage && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Administrador de fincas</CardTitle>
-              <CardDescription>
-                Actual: {community.administrator?.name || 'Sin asignar'}
-                {community.administrator?.email ? ` (${community.administrator.email})` : ''}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={assignAdmin} className="flex flex-col gap-2 sm:flex-row">
-                <Input
-                  type="email"
-                  placeholder="email@administrador.com"
-                  value={adminEmail}
-                  onChange={(e) => setAdminEmail(e.target.value)}
-                  required
-                />
-                <Button type="submit">Asignar</Button>
-              </form>
-              <p className="mt-2 text-xs text-muted-foreground">
-                La cuenta debe existir y estar registrada como administrador.
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Tu cuenta */}
         <Card>
           <CardHeader>
@@ -174,32 +136,24 @@ export default function Settings() {
               <span className="font-medium">{user.email}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Rol</span>
-              <span className="font-medium">
-                {user.role === 'admin' ? 'Administrador' : user.isPresident ? 'Presidente' : 'Propietario'}
-              </span>
+              <span className="text-muted-foreground">Rol en esta comunidad</span>
+              <span className="font-medium">{roleLabels[role] || '—'}</span>
             </div>
-            {user.unit && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Vivienda</span>
-                <span className="font-medium">{user.unit}</span>
-              </div>
-            )}
           </CardContent>
         </Card>
 
-        {/* Abandonar comunidad (solo propietarios no presidentes) */}
-        {user.role === 'owner' && !user.isPresident && (
+        {/* Zona peligrosa (superadmin) */}
+        {role === 'superadmin' && (
           <Card className="border-destructive/30">
             <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
               <div>
-                <p className="font-medium">Abandonar comunidad</p>
+                <p className="font-medium">Eliminar comunidad</p>
                 <p className="text-sm text-muted-foreground">
-                  Dejarás de tener acceso a la información de esta comunidad.
+                  Borra la comunidad y todos sus datos (juntas, temas, arcas y membresías).
                 </p>
               </div>
-              <Button variant="destructive" onClick={leave}>
-                <LogOut className="h-4 w-4" /> Abandonar
+              <Button variant="destructive" onClick={deleteCommunity}>
+                <Trash2 className="h-4 w-4" /> Eliminar
               </Button>
             </CardContent>
           </Card>
