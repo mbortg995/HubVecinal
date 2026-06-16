@@ -134,6 +134,7 @@ export const listMembers = asyncHandler(async (req, res) => {
     unit: m.unit,
     coefficient: m.coefficient,
     isResident: m.isResident,
+    occupantType: m.occupantType,
   }));
   res.json({ members });
 });
@@ -173,10 +174,13 @@ export const updateMember = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: 'Miembro no encontrado' });
   }
 
-  const { unit, coefficient, isResident, role } = req.body;
+  const { unit, coefficient, isResident, occupantType, role } = req.body;
   if (unit !== undefined) membership.unit = unit;
   if (coefficient !== undefined) membership.coefficient = Number(coefficient) || 0;
   if (isResident !== undefined) membership.isResident = Boolean(isResident);
+  if (occupantType !== undefined && ['owner', 'tenant'].includes(occupantType)) {
+    membership.occupantType = occupantType;
+  }
 
   // Solo un superadmin puede cambiar el rol de gobierno de un miembro.
   if (role !== undefined) {

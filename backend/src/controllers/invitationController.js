@@ -7,7 +7,7 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 
 // POST /api/communities/:communityId/invitations  → crear invitación (gestores).
 export const createInvitation = asyncHandler(async (req, res) => {
-  const { email, role, unit, coefficient, isResident } = req.body;
+  const { email, role, unit, coefficient, isResident, occupantType } = req.body;
   if (!email) {
     return res.status(400).json({ message: 'El email del invitado es obligatorio' });
   }
@@ -40,11 +40,13 @@ export const createInvitation = asyncHandler(async (req, res) => {
   });
 
   const resident = isResident === undefined ? true : Boolean(isResident);
+  const occupant = occupantType === 'tenant' ? 'tenant' : 'owner';
   if (invitation) {
     invitation.role = wantedRole;
     invitation.unit = unit || '';
     invitation.coefficient = Number(coefficient) || 0;
     invitation.isResident = resident;
+    invitation.occupantType = occupant;
     await invitation.save();
   } else {
     invitation = await Invitation.create({
@@ -55,6 +57,7 @@ export const createInvitation = asyncHandler(async (req, res) => {
       unit: unit || '',
       coefficient: Number(coefficient) || 0,
       isResident: resident,
+      occupantType: occupant,
       invitedBy: req.user._id,
     });
   }
@@ -103,6 +106,7 @@ export const getInvitation = asyncHandler(async (req, res) => {
     invitation: {
       email: invitation.email,
       role: invitation.role,
+      occupantType: invitation.occupantType,
       unit: invitation.unit,
       community: invitation.community,
       organization: invitation.organization,
@@ -151,6 +155,7 @@ export const acceptInvitation = asyncHandler(async (req, res) => {
         unit: invitation.unit,
         coefficient: invitation.coefficient,
         isResident: invitation.isResident,
+        occupantType: invitation.occupantType,
       },
     },
     { upsert: true, new: true }

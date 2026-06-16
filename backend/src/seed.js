@@ -100,6 +100,8 @@ async function seed() {
       role: 'owner',
       unit: p.unit,
       coefficient: 25,
+      // Javier (4ºA) es inquilino: la vivienda está alquilada.
+      occupantType: p.user.email.startsWith('javier') ? 'tenant' : 'owner',
     })),
   ]);
 

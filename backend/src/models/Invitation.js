@@ -12,6 +12,7 @@ const invitationSchema = new mongoose.Schema(
     unit: { type: String, trim: true, default: '' },
     coefficient: { type: Number, default: 0, min: 0 },
     isResident: { type: Boolean, default: true },
+    occupantType: { type: String, enum: ['owner', 'tenant'], default: 'owner' },
     token: {
       type: String,
       unique: true,

@@ -76,7 +76,10 @@ export default function AcceptInvitation() {
     }
   };
 
-  const roleInfo = roleLabels[invitation.role] || roleLabels.owner;
+  const roleInfo =
+    invitation.role === 'owner' && invitation.occupantType === 'tenant'
+      ? { label: 'Inquilino', icon: User }
+      : roleLabels[invitation.role] || roleLabels.owner;
   const RoleIcon = roleInfo.icon;
 
   return (

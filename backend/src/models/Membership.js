@@ -27,6 +27,9 @@ const membershipSchema = new mongoose.Schema(
     coefficient: { type: Number, default: 0, min: 0 },
     // ¿Reside en la vivienda? (un propietario puede tenerla alquilada).
     isResident: { type: Boolean, default: true },
+    // Relación con la vivienda: 'owner' (propietario, vota y paga cuotas)
+    // o 'tenant' (inquilino, accede al portal pero no vota ni recibe cuotas).
+    occupantType: { type: String, enum: ['owner', 'tenant'], default: 'owner' },
   },
   { timestamps: true }
 );

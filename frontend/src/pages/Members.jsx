@@ -17,17 +17,49 @@ const roleMeta = {
   owner: { label: 'Propietario', icon: User, variant: 'secondary' },
 };
 
+// Etiqueta/estilo de un miembro según su rol y, si es propietario regular,
+// según sea propietario o inquilino.
+function memberMeta(m) {
+  if (m.role === 'owner' && m.occupantType === 'tenant') {
+    return { label: 'Inquilino', icon: User, variant: 'secondary' };
+  }
+  return roleMeta[m.role] || roleMeta.owner;
+}
+
+// Opciones del selector "Tipo de miembro": combinan rol + tipo de ocupante.
+const memberTypeOptions = [
+  { key: 'propietario', label: 'Propietario', role: 'owner', occupantType: 'owner' },
+  { key: 'inquilino', label: 'Inquilino', role: 'owner', occupantType: 'tenant' },
+  { key: 'presidente', label: 'Presidente', role: 'president', occupantType: 'owner' },
+  { key: 'administrador', label: 'Administrador', role: 'admin', occupantType: 'owner' },
+];
+const typeKey = (role, occupantType) =>
+  memberTypeOptions.find((o) => o.role === role && o.occupantType === occupantType)?.key ||
+  'propietario';
+
 export default function Members() {
   const { activeId, canManage, role: myRole } = useCommunities();
   const [members, setMembers] = useState([]);
   const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ email: '', role: 'owner', unit: '', coefficient: '' });
+  const [form, setForm] = useState({
+    email: '',
+    role: 'owner',
+    occupantType: 'owner',
+    unit: '',
+    coefficient: '',
+  });
   const [error, setError] = useState('');
   const [copiedId, setCopiedId] = useState(null);
   const [editing, setEditing] = useState(null);
-  const [editForm, setEditForm] = useState({ unit: '', coefficient: '', isResident: true, role: 'owner' });
+  const [editForm, setEditForm] = useState({
+    unit: '',
+    coefficient: '',
+    isResident: true,
+    role: 'owner',
+    occupantType: 'owner',
+  });
 
   const load = useCallback(() => {
     if (!activeId) return;
@@ -52,7 +84,7 @@ export default function Members() {
         ...form,
         coefficient: Number(form.coefficient) || 0,
       });
-      setForm({ email: '', role: 'owner', unit: '', coefficient: '' });
+      setForm({ email: '', role: 'owner', occupantType: 'owner', unit: '', coefficient: '' });
       setOpen(false);
       load();
     } catch (err) {
@@ -73,6 +105,7 @@ export default function Members() {
       coefficient: m.coefficient ?? '',
       isResident: m.isResident !== false,
       role: m.role,
+      occupantType: m.occupantType || 'owner',
     });
     setError('');
   };
@@ -85,6 +118,8 @@ export default function Members() {
         unit: editForm.unit,
         coefficient: Number(editForm.coefficient) || 0,
         isResident: editForm.isResident,
+        // El tipo de ocupante solo aplica a propietarios regulares.
+        occupantType: editForm.role === 'owner' ? editForm.occupantType : 'owner',
       };
       // El rol solo lo puede cambiar un superadmin.
       if (myRole === 'superadmin') payload.role = editForm.role;
@@ -113,18 +148,11 @@ export default function Members() {
   const totalCoefficient = members.reduce((sum, m) => sum + (m.coefficient || 0), 0);
   const coefficientOff = canManage && members.length > 0 && Math.abs(totalCoefficient - 100) > 0.01;
 
-  // Un superadmin puede conceder rol admin; el resto de gestores solo owner/president.
-  const roleOptions =
+  // Un superadmin puede conceder rol admin; el resto de gestores no.
+  const typeOptions =
     myRole === 'superadmin'
-      ? [
-          { value: 'owner', label: 'Propietario' },
-          { value: 'president', label: 'Presidente' },
-          { value: 'admin', label: 'Administrador' },
-        ]
-      : [
-          { value: 'owner', label: 'Propietario' },
-          { value: 'president', label: 'Presidente' },
-        ];
+      ? memberTypeOptions
+      : memberTypeOptions.filter((o) => o.role !== 'admin');
 
   return (
     <div>
@@ -197,7 +225,7 @@ export default function Members() {
           {/* Miembros */}
           <div className="grid gap-3 sm:grid-cols-2">
             {members.map((m) => {
-              const meta = roleMeta[m.role] || roleMeta.owner;
+              const meta = memberMeta(m);
               const Icon = meta.icon;
               return (
                 <Card key={m._id}>
@@ -259,14 +287,17 @@ export default function Members() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="role">Rol</Label>
+              <Label htmlFor="memberType">Tipo de miembro</Label>
               <Select
-                id="role"
-                value={form.role}
-                onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+                id="memberType"
+                value={typeKey(form.role, form.occupantType)}
+                onChange={(e) => {
+                  const opt = memberTypeOptions.find((o) => o.key === e.target.value);
+                  setForm((f) => ({ ...f, role: opt.role, occupantType: opt.occupantType }));
+                }}
               >
-                {roleOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
+                {typeOptions.map((o) => (
+                  <option key={o.key} value={o.key}>
                     {o.label}
                   </option>
                 ))}
@@ -331,6 +362,19 @@ export default function Members() {
               />
             </div>
           </div>
+          {editForm.role === 'owner' && (
+            <div className="space-y-1.5">
+              <Label htmlFor="eoccupant">Tipo de ocupante</Label>
+              <Select
+                id="eoccupant"
+                value={editForm.occupantType}
+                onChange={(e) => setEditForm((f) => ({ ...f, occupantType: e.target.value }))}
+              >
+                <option value="owner">Propietario</option>
+                <option value="tenant">Inquilino</option>
+              </Select>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="eresident">Residencia</Label>
             <Select
