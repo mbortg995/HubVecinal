@@ -24,6 +24,8 @@ import {
   updateMeeting,
   deleteMeeting,
   sendConvocatoria,
+  getMeeting,
+  setAttendance,
 } from '../controllers/meetingController.js';
 import { listTopics, createTopic, updateTopic, deleteTopic } from '../controllers/topicController.js';
 import {
@@ -80,9 +82,11 @@ router.delete('/:communityId/invitations/:invitationId', requireManage, revokeIn
 
 // Juntas vecinales.
 router.get('/:communityId/meetings', listMeetings);
+router.get('/:communityId/meetings/:meetingId', getMeeting);
 router.post('/:communityId/meetings', requireManage, createMeeting);
 router.patch('/:communityId/meetings/:meetingId', requireManage, updateMeeting);
 router.post('/:communityId/meetings/:meetingId/convocatoria', requireManage, sendConvocatoria);
+router.put('/:communityId/meetings/:meetingId/attendance', requireManage, setAttendance);
 router.delete('/:communityId/meetings/:meetingId', requireManage, deleteMeeting);
 
 // Temas.

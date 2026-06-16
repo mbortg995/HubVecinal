@@ -1,5 +1,16 @@
 import { useEffect, useState, useCallback } from 'react';
-import { CalendarDays, MapPin, Plus, Pencil, Trash2, Send, ListOrdered, X } from 'lucide-react';
+import {
+  CalendarDays,
+  MapPin,
+  Plus,
+  Pencil,
+  Trash2,
+  Send,
+  ListOrdered,
+  X,
+  Users,
+  ClipboardList,
+} from 'lucide-react';
 import api from '@/lib/api';
 import { useCommunities } from '@/context/CommunityContext';
 import { PageHeader } from '@/components/PageHeader';
@@ -32,6 +43,9 @@ export default function Meetings() {
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  // Detalle de junta (quórum, asistencia, votaciones).
+  const [detail, setDetail] = useState(null);
+  const [att, setAtt] = useState({}); // ownerId -> 'absent' | 'present' | 'proxy:<id>'
 
   const load = useCallback(() => {
     if (!activeId) return;
@@ -111,6 +125,35 @@ export default function Meetings() {
     } catch (err) {
       flash(err.response?.data?.message || 'No se pudo enviar');
     }
+  };
+
+  // --- Detalle / asistencia ---
+  const openDetail = async (m) => {
+    const { data } = await api.get(`/communities/${activeId}/meetings/${m._id}`);
+    setDetail(data);
+    // Reconstruye el borrador de asistencia.
+    const draft = {};
+    data.owners.forEach((o) => (draft[o.user] = 'absent'));
+    data.meeting.attendance.forEach((a) => {
+      const id = a.owner?._id || a.owner;
+      if (a.proxyTo) draft[id] = `proxy:${a.proxyTo._id || a.proxyTo}`;
+      else draft[id] = 'present';
+    });
+    setAtt(draft);
+  };
+
+  const saveAttendance = async () => {
+    const attendance = Object.entries(att)
+      .filter(([, v]) => v !== 'absent')
+      .map(([owner, v]) =>
+        v.startsWith('proxy:') ? { owner, proxyTo: v.slice(6) } : { owner }
+      );
+    const { data } = await api.put(
+      `/communities/${activeId}/meetings/${detail.meeting._id}/attendance`,
+      { attendance }
+    );
+    setDetail((d) => ({ ...d, quorum: data.quorum }));
+    flash('Asistencia guardada');
   };
 
   const upd = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -200,21 +243,26 @@ export default function Meetings() {
                     {m.notes && <p className="mt-2 max-w-prose text-sm">{m.notes}</p>}
                   </div>
                 </div>
-                {canManage && (
-                  <div className="flex gap-1">
-                    {m.status === 'upcoming' && (
-                      <Button variant="ghost" size="icon" title="Enviar convocatoria" onClick={() => sendConvocatoria(m)}>
-                        <Send className="h-4 w-4" />
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" title="Detalle / asistencia / votaciones" onClick={() => openDetail(m)}>
+                    <ClipboardList className="h-4 w-4" />
+                  </Button>
+                  {canManage && (
+                    <>
+                      {m.status === 'upcoming' && (
+                        <Button variant="ghost" size="icon" title="Enviar convocatoria" onClick={() => sendConvocatoria(m)}>
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(m)}>
+                        <Pencil className="h-4 w-4" />
                       </Button>
-                    )}
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(m)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => remove(m)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                )}
+                      <Button variant="ghost" size="icon" onClick={() => remove(m)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </>
+                  )}
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -301,6 +349,71 @@ export default function Meetings() {
             <Button type="submit">{editing ? 'Guardar' : 'Crear'}</Button>
           </div>
         </form>
+      </Dialog>
+
+      {/* Detalle: quórum y asistencia */}
+      <Dialog open={!!detail} onClose={() => setDetail(null)} title={detail?.meeting?.title} className="max-w-2xl">
+        {detail && (
+          <div className="space-y-5">
+            {/* Quórum */}
+            <div>
+              <p className="flex items-center gap-2 text-sm font-semibold">
+                <Users className="h-4 w-4" /> Quórum
+              </p>
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-secondary">
+                <div
+                  className="h-full bg-primary"
+                  style={{ width: `${Math.min(detail.quorum.percent, 100)}%` }}
+                />
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {detail.quorum.percent.toFixed(1)}% de coeficientes ·{' '}
+                {detail.quorum.ownersPresent}/{detail.quorum.ownersTotal} propietarios ·{' '}
+                {detail.quorum.firstCallValid
+                  ? 'quórum de 1ª convocatoria'
+                  : detail.quorum.secondCallValid
+                    ? 'válido en 2ª convocatoria'
+                    : 'sin quórum'}
+              </p>
+            </div>
+
+            {/* Asistencia (gestores) */}
+            {detail.canManage ? (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold">Asistencia y delegaciones</p>
+                {detail.owners.map((o) => (
+                  <div key={o.user} className="flex items-center justify-between gap-2">
+                    <span className="text-sm">
+                      {o.name} <span className="text-muted-foreground">({o.coefficient}%)</span>
+                    </span>
+                    <Select
+                      className="max-w-[60%]"
+                      value={att[o.user] || 'absent'}
+                      onChange={(e) => setAtt((a) => ({ ...a, [o.user]: e.target.value }))}
+                    >
+                      <option value="absent">Ausente</option>
+                      <option value="present">Presente</option>
+                      {detail.owners
+                        .filter((x) => x.user !== o.user)
+                        .map((x) => (
+                          <option key={x.user} value={`proxy:${x.user}`}>
+                            Representado por {x.name}
+                          </option>
+                        ))}
+                    </Select>
+                  </div>
+                ))}
+                <Button size="sm" onClick={saveAttendance}>
+                  Guardar asistencia
+                </Button>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {detail.quorum.ownersPresent} de {detail.quorum.ownersTotal} propietarios presentes.
+              </p>
+            )}
+          </div>
+        )}
       </Dialog>
     </div>
   );

@@ -31,6 +31,15 @@ const meetingSchema = new mongoose.Schema(
     },
     // Orden del día.
     agenda: [agendaPointSchema],
+    // Asistencia: cada entrada es un propietario presente; si proxyTo está
+    // relleno, asiste representado por ese otro propietario (delegación de voto).
+    attendance: [
+      {
+        _id: false,
+        owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        proxyTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+      },
+    ],
     // Acta / notas de la junta.
     notes: { type: String, default: '' },
     // Marca de cuándo se envió la convocatoria por email.
