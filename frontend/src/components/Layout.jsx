@@ -11,6 +11,7 @@ import {
   LogOut,
   Plus,
   FileText,
+  AlertCircle,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -24,6 +25,7 @@ import { cn } from '@/lib/utils';
 
 const navItems = [
   { to: '/', label: 'Inicio', icon: LayoutDashboard, end: true },
+  { to: '/incidencias', label: 'Incidencias', icon: AlertCircle },
   { to: '/juntas', label: 'Juntas', icon: CalendarDays },
   { to: '/temas', label: 'Temas', icon: ListTodo },
   { to: '/arcas', label: 'Arcas comunes', icon: Wallet },

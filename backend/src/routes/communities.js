@@ -32,6 +32,14 @@ import {
   deleteDocument,
 } from '../controllers/documentController.js';
 import {
+  listIncidents,
+  createIncident,
+  updateIncident,
+  addComment,
+  downloadPhoto,
+  deleteIncident,
+} from '../controllers/incidentController.js';
+import {
   listTransactions,
   createTransaction,
   deleteTransaction,
@@ -80,6 +88,14 @@ router.get('/:communityId/documents', listDocuments);
 router.post('/:communityId/documents', requireManage, upload.single('file'), uploadDocument);
 router.get('/:communityId/documents/:documentId/download', downloadDocument);
 router.delete('/:communityId/documents/:documentId', requireManage, deleteDocument);
+
+// Incidencias (cualquier miembro reporta y comenta; gestores cambian estado/asignan).
+router.get('/:communityId/incidents', listIncidents);
+router.post('/:communityId/incidents', upload.array('photos', 5), createIncident);
+router.patch('/:communityId/incidents/:incidentId', requireManage, updateIncident);
+router.post('/:communityId/incidents/:incidentId/comments', addComment);
+router.get('/:communityId/incidents/:incidentId/photos/:index/download', downloadPhoto);
+router.delete('/:communityId/incidents/:incidentId', requireManage, deleteIncident);
 
 // Arcas comunes (movimientos).
 router.get('/:communityId/transactions', listTransactions);
