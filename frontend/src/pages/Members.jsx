@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Crown, ShieldCheck, User, Plus, Trash2, Copy, Check, Mail, X, Pencil } from 'lucide-react';
+import { Crown, ShieldCheck, User, Plus, Trash2, Copy, Check, Mail, X, Pencil, Send } from 'lucide-react';
 import api from '@/lib/api';
 import { useCommunities } from '@/context/CommunityContext';
 import { PageHeader } from '@/components/PageHeader';
@@ -89,6 +89,19 @@ export default function Members() {
       load();
     } catch (err) {
       setError(err.response?.data?.message || 'No se pudo crear la invitación');
+    }
+  };
+
+  const resend = async (inv) => {
+    try {
+      const { data } = await api.post(`/communities/${activeId}/invitations/${inv._id}/resend`);
+      alert(
+        data.emailDelivered
+          ? `Invitación reenviada a ${inv.email}`
+          : `Reenviada (modo dev: el email se registra en consola, no se envía).`
+      );
+    } catch (err) {
+      alert(err.response?.data?.message || 'No se pudo reenviar');
     }
   };
 
@@ -211,6 +224,9 @@ export default function Members() {
                             <Copy className="h-4 w-4" /> Copiar enlace
                           </>
                         )}
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => resend(inv)}>
+                        <Send className="h-4 w-4" /> Reenviar
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => revoke(inv)}>
                         <X className="h-4 w-4 text-destructive" />

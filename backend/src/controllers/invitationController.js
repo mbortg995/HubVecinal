@@ -101,6 +101,21 @@ export const listInvitations = asyncHandler(async (req, res) => {
   res.json({ invitations });
 });
 
+// POST /api/communities/:communityId/invitations/:invitationId/resend  → reenviar email (gestores).
+export const resendInvitation = asyncHandler(async (req, res) => {
+  const invitation = await Invitation.findOne({
+    _id: req.params.invitationId,
+    community: req.community._id,
+    status: 'pending',
+  });
+  if (!invitation) {
+    return res.status(404).json({ message: 'Invitación no encontrada o ya utilizada' });
+  }
+  const org = await Organization.findById(req.community.organization).select('name');
+  const result = await sendInvitationEmail(invitation, req.community.name, org?.name);
+  res.json({ message: 'Invitación reenviada', emailDelivered: result.delivered });
+});
+
 // DELETE /api/communities/:communityId/invitations/:invitationId  → revocar (gestores).
 export const revokeInvitation = asyncHandler(async (req, res) => {
   const invitation = await Invitation.findOne({

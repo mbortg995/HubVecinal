@@ -15,6 +15,7 @@ import {
   createInvitation,
   listInvitations,
   revokeInvitation,
+  resendInvitation,
 } from '../controllers/invitationController.js';
 import {
   listMeetings,
@@ -52,6 +53,7 @@ router.delete('/:communityId/members/:membershipId', requireManage, removeMember
 // Invitaciones.
 router.get('/:communityId/invitations', requireManage, listInvitations);
 router.post('/:communityId/invitations', requireManage, createInvitation);
+router.post('/:communityId/invitations/:invitationId/resend', requireManage, resendInvitation);
 router.delete('/:communityId/invitations/:invitationId', requireManage, revokeInvitation);
 
 // Juntas vecinales.
