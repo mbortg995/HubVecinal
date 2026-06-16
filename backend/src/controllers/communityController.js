@@ -163,6 +163,33 @@ export const deleteCommunity = asyncHandler(async (req, res) => {
   res.json({ message: 'Comunidad eliminada' });
 });
 
+// PATCH /api/communities/:communityId/members/:membershipId  → editar membresía (gestores).
+export const updateMember = asyncHandler(async (req, res) => {
+  const membership = await Membership.findOne({
+    _id: req.params.membershipId,
+    community: req.community._id,
+  });
+  if (!membership) {
+    return res.status(404).json({ message: 'Miembro no encontrado' });
+  }
+
+  const { unit, coefficient, isResident, role } = req.body;
+  if (unit !== undefined) membership.unit = unit;
+  if (coefficient !== undefined) membership.coefficient = Number(coefficient) || 0;
+  if (isResident !== undefined) membership.isResident = Boolean(isResident);
+
+  // Solo un superadmin puede cambiar el rol de gobierno de un miembro.
+  if (role !== undefined) {
+    if (req.communityRole !== 'superadmin') {
+      return res.status(403).json({ message: 'Solo un superadmin puede cambiar el rol' });
+    }
+    if (['admin', 'president', 'owner'].includes(role)) membership.role = role;
+  }
+
+  await membership.save();
+  res.json({ membership });
+});
+
 // DELETE /api/communities/:communityId/members/:membershipId  → quitar a un vecino (gestores).
 export const removeMember = asyncHandler(async (req, res) => {
   const membership = await Membership.findOne({

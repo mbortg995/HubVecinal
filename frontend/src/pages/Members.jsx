@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Crown, ShieldCheck, User, Plus, Trash2, Copy, Check, Mail, X } from 'lucide-react';
+import { Crown, ShieldCheck, User, Plus, Trash2, Copy, Check, Mail, X, Pencil } from 'lucide-react';
 import api from '@/lib/api';
 import { useCommunities } from '@/context/CommunityContext';
 import { PageHeader } from '@/components/PageHeader';
@@ -26,6 +26,8 @@ export default function Members() {
   const [form, setForm] = useState({ email: '', role: 'owner', unit: '', coefficient: '' });
   const [error, setError] = useState('');
   const [copiedId, setCopiedId] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [editForm, setEditForm] = useState({ unit: '', coefficient: '', isResident: true, role: 'owner' });
 
   const load = useCallback(() => {
     if (!activeId) return;
@@ -62,6 +64,36 @@ export default function Members() {
     if (!confirm(`¿Revocar la invitación a ${inv.email}?`)) return;
     await api.delete(`/communities/${activeId}/invitations/${inv._id}`);
     load();
+  };
+
+  const openEdit = (m) => {
+    setEditing(m);
+    setEditForm({
+      unit: m.unit || '',
+      coefficient: m.coefficient ?? '',
+      isResident: m.isResident !== false,
+      role: m.role,
+    });
+    setError('');
+  };
+
+  const submitEdit = async (e) => {
+    e.preventDefault();
+    setError('');
+    try {
+      const payload = {
+        unit: editForm.unit,
+        coefficient: Number(editForm.coefficient) || 0,
+        isResident: editForm.isResident,
+      };
+      // El rol solo lo puede cambiar un superadmin.
+      if (myRole === 'superadmin') payload.role = editForm.role;
+      await api.patch(`/communities/${activeId}/members/${editing._id}`, payload);
+      setEditing(null);
+      load();
+    } catch (err) {
+      setError(err.response?.data?.message || 'No se pudo guardar');
+    }
   };
 
   const removeMember = async (m) => {
@@ -191,9 +223,14 @@ export default function Members() {
                       )}
                     </div>
                     {canManage && (
-                      <Button variant="ghost" size="icon" onClick={() => removeMember(m)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      <div className="flex flex-col">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(m)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => removeMember(m)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     )}
                   </CardContent>
                 </Card>
@@ -263,6 +300,68 @@ export default function Members() {
               Cancelar
             </Button>
             <Button type="submit">Crear invitación</Button>
+          </div>
+        </form>
+      </Dialog>
+
+      <Dialog
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        title={`Editar a ${editing?.user?.name || ''}`}
+      >
+        <form onSubmit={submitEdit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="eunit">Vivienda</Label>
+              <Input
+                id="eunit"
+                value={editForm.unit}
+                onChange={(e) => setEditForm((f) => ({ ...f, unit: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ecoef">Coeficiente (%)</Label>
+              <Input
+                id="ecoef"
+                type="number"
+                min="0"
+                step="0.01"
+                value={editForm.coefficient}
+                onChange={(e) => setEditForm((f) => ({ ...f, coefficient: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="eresident">Residencia</Label>
+            <Select
+              id="eresident"
+              value={editForm.isResident ? 'yes' : 'no'}
+              onChange={(e) => setEditForm((f) => ({ ...f, isResident: e.target.value === 'yes' }))}
+            >
+              <option value="yes">Reside en la vivienda</option>
+              <option value="no">No reside (alquilada / no habitada)</option>
+            </Select>
+          </div>
+          {myRole === 'superadmin' && (
+            <div className="space-y-1.5">
+              <Label htmlFor="erole">Rol</Label>
+              <Select
+                id="erole"
+                value={editForm.role}
+                onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
+              >
+                <option value="owner">Propietario</option>
+                <option value="president">Presidente</option>
+                <option value="admin">Administrador</option>
+              </Select>
+            </div>
+          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setEditing(null)}>
+              Cancelar
+            </Button>
+            <Button type="submit">Guardar</Button>
           </div>
         </form>
       </Dialog>
