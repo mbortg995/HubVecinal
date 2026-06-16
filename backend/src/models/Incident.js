@@ -37,6 +37,8 @@ const incidentSchema = new mongoose.Schema(
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     // Gestor o proveedor responsable (opcional).
     assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    // Tema creado al escalar esta incidencia a la junta (si procede).
+    escalatedTopic: { type: mongoose.Schema.Types.ObjectId, ref: 'Topic', default: null },
     comments: [commentSchema],
   },
   { timestamps: true }

@@ -45,6 +45,7 @@ import {
   addComment,
   downloadPhoto,
   deleteIncident,
+  escalateIncident,
 } from '../controllers/incidentController.js';
 import {
   listAnnouncements,
@@ -120,6 +121,7 @@ router.get('/:communityId/incidents', listIncidents);
 router.post('/:communityId/incidents', upload.array('photos', 5), createIncident);
 router.patch('/:communityId/incidents/:incidentId', requireManage, updateIncident);
 router.post('/:communityId/incidents/:incidentId/comments', addComment);
+router.post('/:communityId/incidents/:incidentId/escalate', requireManage, escalateIncident);
 router.get('/:communityId/incidents/:incidentId/photos/:index/download', downloadPhoto);
 router.delete('/:communityId/incidents/:incidentId', requireManage, deleteIncident);
 

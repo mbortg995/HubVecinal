@@ -150,6 +150,7 @@ export default function Topics() {
                       <Badge variant={t.status === 'resolved' ? 'success' : 'warning'}>
                         {t.status === 'resolved' ? 'Resuelto' : 'Pendiente'}
                       </Badge>
+                      {t.sourceIncident && <Badge variant="outline">Desde incidencia</Badge>}
                     </div>
                     {t.description && <p className="mt-1 text-sm text-muted-foreground">{t.description}</p>}
                     {t.status === 'resolved' && t.resolution && (

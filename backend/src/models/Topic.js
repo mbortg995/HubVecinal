@@ -24,6 +24,12 @@ const topicSchema = new mongoose.Schema(
     },
     // Texto con la resolución adoptada.
     resolution: { type: String, default: '' },
+    // Incidencia de origen, si el tema se creó escalando una incidencia.
+    sourceIncident: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Incident',
+      default: null,
+    },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }
