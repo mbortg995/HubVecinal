@@ -23,6 +23,13 @@ import {
   createMeeting,
   updateMeeting,
   deleteMeeting,
+  sendConvocatoria,
+  getMeeting,
+  setAttendance,
+  updateAgendaPoint,
+  castVote,
+  uploadActa,
+  deleteActa,
 } from '../controllers/meetingController.js';
 import { listTopics, createTopic, updateTopic, deleteTopic } from '../controllers/topicController.js';
 import {
@@ -38,6 +45,7 @@ import {
   addComment,
   downloadPhoto,
   deleteIncident,
+  escalateIncident,
 } from '../controllers/incidentController.js';
 import {
   listAnnouncements,
@@ -79,8 +87,15 @@ router.delete('/:communityId/invitations/:invitationId', requireManage, revokeIn
 
 // Juntas vecinales.
 router.get('/:communityId/meetings', listMeetings);
+router.get('/:communityId/meetings/:meetingId', getMeeting);
 router.post('/:communityId/meetings', requireManage, createMeeting);
 router.patch('/:communityId/meetings/:meetingId', requireManage, updateMeeting);
+router.post('/:communityId/meetings/:meetingId/convocatoria', requireManage, sendConvocatoria);
+router.put('/:communityId/meetings/:meetingId/attendance', requireManage, setAttendance);
+router.patch('/:communityId/meetings/:meetingId/agenda/:pointId', requireManage, updateAgendaPoint);
+router.post('/:communityId/meetings/:meetingId/agenda/:pointId/vote', castVote);
+router.post('/:communityId/meetings/:meetingId/acta', requireManage, upload.single('file'), uploadActa);
+router.delete('/:communityId/meetings/:meetingId/acta', requireManage, deleteActa);
 router.delete('/:communityId/meetings/:meetingId', requireManage, deleteMeeting);
 
 // Temas.
@@ -106,6 +121,7 @@ router.get('/:communityId/incidents', listIncidents);
 router.post('/:communityId/incidents', upload.array('photos', 5), createIncident);
 router.patch('/:communityId/incidents/:incidentId', requireManage, updateIncident);
 router.post('/:communityId/incidents/:incidentId/comments', addComment);
+router.post('/:communityId/incidents/:incidentId/escalate', requireManage, escalateIncident);
 router.get('/:communityId/incidents/:incidentId/photos/:index/download', downloadPhoto);
 router.delete('/:communityId/incidents/:incidentId', requireManage, deleteIncident);
 

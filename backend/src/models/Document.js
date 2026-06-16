@@ -20,6 +20,8 @@ const documentSchema = new mongoose.Schema(
     originalName: { type: String, default: '' },
     mimeType: { type: String, default: '' },
     size: { type: Number, default: 0 },
+    // Texto extraído del PDF (capa de texto) para búsqueda y vista previa.
+    text: { type: String, default: '' },
     uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { AlertCircle, Plus, Trash2, MessageSquare, ImageIcon, Send } from 'lucide-react';
+import { AlertCircle, Plus, Trash2, MessageSquare, ImageIcon, Send, ArrowUpRight } from 'lucide-react';
 import api from '@/lib/api';
 import { useCommunities } from '@/context/CommunityContext';
 import { PageHeader } from '@/components/PageHeader';
@@ -128,6 +128,17 @@ export default function Incidents() {
     await api.delete(`/communities/${activeId}/incidents/${inc._id}`);
     setDetail(null);
     load();
+  };
+
+  const escalate = async () => {
+    if (!confirm('¿Crear un tema del orden del día a partir de esta incidencia?')) return;
+    try {
+      await api.post(`/communities/${activeId}/incidents/${detail._id}/escalate`);
+      refreshDetail({ ...detail, escalatedTopic: 'set' });
+      load();
+    } catch (err) {
+      console.error('No se pudo escalar:', err.response?.data?.message || err.message);
+    }
   };
 
   const filters = [
@@ -331,7 +342,14 @@ export default function Incidents() {
             </div>
 
             {canManage && (
-              <div className="flex justify-end border-t pt-3">
+              <div className="flex flex-wrap justify-between gap-2 border-t pt-3">
+                {detail.escalatedTopic ? (
+                  <Badge variant="secondary">Llevada a junta (tema creado)</Badge>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={escalate}>
+                    <ArrowUpRight className="h-4 w-4" /> Llevar a junta
+                  </Button>
+                )}
                 <Button variant="destructive" size="sm" onClick={() => remove(detail)}>
                   <Trash2 className="h-4 w-4" /> Eliminar incidencia
                 </Button>

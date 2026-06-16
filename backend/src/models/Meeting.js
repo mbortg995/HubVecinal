@@ -1,5 +1,29 @@
 import mongoose from 'mongoose';
 
+// Punto del orden del día.
+const agendaPointSchema = new mongoose.Schema(
+  {
+    order: { type: Number, default: 0 },
+    title: { type: String, required: true, trim: true },
+    description: { type: String, default: '' },
+    // Mayoría requerida (la declara el gestor; no se deduce automáticamente).
+    majorityType: {
+      type: String,
+      enum: ['simple', 'tres_quintos', 'un_tercio', 'unanimidad'],
+      default: 'simple',
+    },
+    votingOpen: { type: Boolean, default: false },
+    votes: [
+      {
+        _id: false,
+        owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        value: { type: String, enum: ['favor', 'contra', 'abstencion'] },
+      },
+    ],
+  },
+  { _id: true }
+);
+
 const meetingSchema = new mongoose.Schema(
   {
     community: {
@@ -10,6 +34,8 @@ const meetingSchema = new mongoose.Schema(
     },
     title: { type: String, required: true, trim: true },
     date: { type: Date, required: true },
+    // Segunda convocatoria (opcional). La 1ª es `date`.
+    secondCallDate: { type: Date, default: null },
     location: { type: String, trim: true, default: '' },
     // 'upcoming': próxima junta. 'held': junta ya celebrada.
     status: {
@@ -17,8 +43,23 @@ const meetingSchema = new mongoose.Schema(
       enum: ['upcoming', 'held'],
       default: 'upcoming',
     },
-    // Acta / notas de la junta.
+    // Orden del día.
+    agenda: [agendaPointSchema],
+    // Asistencia: cada entrada es un propietario presente; si proxyTo está
+    // relleno, asiste representado por ese otro propietario (delegación de voto).
+    attendance: [
+      {
+        _id: false,
+        owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        proxyTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+      },
+    ],
+    // Acta oficial (PDF) adjunta, guardada como Document (categoría 'acta').
+    acta: { type: mongoose.Schema.Types.ObjectId, ref: 'Document', default: null },
+    // Notas internas de la junta.
     notes: { type: String, default: '' },
+    // Marca de cuándo se envió la convocatoria por email.
+    convocatoriaSentAt: { type: Date, default: null },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }

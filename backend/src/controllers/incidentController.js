@@ -1,4 +1,5 @@
 import Incident from '../models/Incident.js';
+import Topic from '../models/Topic.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { streamFile, deleteFile } from '../utils/files.js';
 import { sendEmail, baseTemplate } from '../utils/email.js';
@@ -99,6 +100,32 @@ export const addComment = asyncHandler(async (req, res) => {
   await incident.save();
   const result = await populateIncident(Incident.findById(incident._id));
   res.status(201).json({ incident: result });
+});
+
+// POST /api/communities/:communityId/incidents/:incidentId/escalate  (gestores)
+// Crea un tema (orden del día) a partir de la incidencia, manteniéndolos enlazados.
+export const escalateIncident = asyncHandler(async (req, res) => {
+  const incident = await Incident.findOne({
+    _id: req.params.incidentId,
+    community: req.community._id,
+  });
+  if (!incident) {
+    return res.status(404).json({ message: 'Incidencia no encontrada' });
+  }
+  if (incident.escalatedTopic) {
+    return res.status(409).json({ message: 'Esta incidencia ya se llevó a junta' });
+  }
+  const topic = await Topic.create({
+    community: req.community._id,
+    title: incident.title,
+    description: `(Escalado desde una incidencia) ${incident.description || ''}`.trim(),
+    status: 'pending',
+    sourceIncident: incident._id,
+    createdBy: req.user._id,
+  });
+  incident.escalatedTopic = topic._id;
+  await incident.save();
+  res.status(201).json({ topic });
 });
 
 // GET /api/communities/:communityId/incidents/:incidentId/photos/:index/download

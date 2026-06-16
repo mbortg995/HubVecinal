@@ -1,14 +1,29 @@
 import Document from '../models/Document.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { streamFile, deleteFile } from '../utils/files.js';
+import { streamFile, deleteFile, extractPdfText } from '../utils/files.js';
 
-// GET /api/communities/:communityId/documents
+// Escapa una cadena para usarla en una expresión regular.
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// GET /api/communities/:communityId/documents?category=&q=
 export const listDocuments = asyncHandler(async (req, res) => {
   const filter = { community: req.community._id };
   if (req.query.category) filter.category = req.query.category;
-  const documents = await Document.find(filter)
-    .populate('uploadedBy', 'name')
-    .sort({ createdAt: -1 });
+
+  // Búsqueda de texto completo (en nombre y texto extraído del PDF).
+  const q = (req.query.q || '').trim();
+  if (q) {
+    const rx = new RegExp(escapeRegex(q), 'i');
+    filter.$or = [{ name: rx }, { text: rx }];
+  }
+
+  const docs = await Document.find(filter).populate('uploadedBy', 'name').sort({ createdAt: -1 }).lean();
+  // No devolvemos el texto completo en la lista; solo una vista previa.
+  const documents = docs.map(({ text, ...rest }) => ({
+    ...rest,
+    hasText: !!text,
+    textPreview: text ? text.slice(0, 280) : '',
+  }));
   res.json({ documents });
 });
 
@@ -17,6 +32,8 @@ export const uploadDocument = asyncHandler(async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No se ha adjuntado ningún archivo' });
   }
+  // Extracción local del texto si es un PDF (para búsqueda y vista previa).
+  const text = req.file.mimetype === 'application/pdf' ? await extractPdfText(req.file.filename) : '';
   const document = await Document.create({
     community: req.community._id,
     name: req.body.name?.trim() || req.file.originalname,
@@ -25,6 +42,7 @@ export const uploadDocument = asyncHandler(async (req, res) => {
     originalName: req.file.originalname,
     mimeType: req.file.mimetype,
     size: req.file.size,
+    text,
     uploadedBy: req.user._id,
   });
   res.status(201).json({ document });
