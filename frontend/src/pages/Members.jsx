@@ -52,6 +52,7 @@ export default function Members() {
   });
   const [error, setError] = useState('');
   const [copiedId, setCopiedId] = useState(null);
+  const [notice, setNotice] = useState('');
   const [editing, setEditing] = useState(null);
   const [editForm, setEditForm] = useState({
     unit: '',
@@ -92,16 +93,21 @@ export default function Members() {
     }
   };
 
+  const flashNotice = (text) => {
+    setNotice(text);
+    setTimeout(() => setNotice(''), 4000);
+  };
+
   const resend = async (inv) => {
     try {
       const { data } = await api.post(`/communities/${activeId}/invitations/${inv._id}/resend`);
-      alert(
+      flashNotice(
         data.emailDelivered
           ? `Invitación reenviada a ${inv.email}`
-          : `Reenviada (modo dev: el email se registra en consola, no se envía).`
+          : 'Reenviada (modo dev: el email se registra en consola, no se envía).'
       );
     } catch (err) {
-      alert(err.response?.data?.message || 'No se pudo reenviar');
+      flashNotice(err.response?.data?.message || 'No se pudo reenviar');
     }
   };
 
@@ -180,6 +186,10 @@ export default function Members() {
           )
         }
       />
+
+      {notice && (
+        <div className="mb-4 rounded-md bg-emerald-50 px-4 py-2 text-sm text-emerald-700">{notice}</div>
+      )}
 
       {loading ? (
         <p className="text-muted-foreground">Cargando…</p>

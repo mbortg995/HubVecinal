@@ -20,6 +20,7 @@ export default function Announcements() {
   const [form, setForm] = useState({ title: '', body: '', pinned: false, notifyByEmail: false });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState('');
 
   const load = useCallback(() => {
     if (!activeId) return;
@@ -38,12 +39,14 @@ export default function Announcements() {
     setBusy(true);
     try {
       const { data } = await api.post(`/communities/${activeId}/announcements`, form);
-      if (form.notifyByEmail) {
-        alert(`Aviso publicado. Notificación enviada a ${data.notified} vecino(s).`);
-      }
       setForm({ title: '', body: '', pinned: false, notifyByEmail: false });
       setOpen(false);
       load();
+      const text = form.notifyByEmail
+        ? `Aviso publicado. Notificación enviada a ${data.notified} vecino(s).`
+        : 'Aviso publicado.';
+      setNotice(text);
+      setTimeout(() => setNotice(''), 4000);
     } catch (err) {
       setError(err.response?.data?.message || 'No se pudo publicar el aviso');
     } finally {
@@ -75,6 +78,10 @@ export default function Announcements() {
           )
         }
       />
+
+      {notice && (
+        <div className="mb-4 rounded-md bg-emerald-50 px-4 py-2 text-sm text-emerald-700">{notice}</div>
+      )}
 
       {loading ? (
         <p className="text-muted-foreground">Cargando…</p>
