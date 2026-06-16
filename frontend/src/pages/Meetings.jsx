@@ -24,6 +24,14 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog } from '@/components/ui/dialog';
 import { formatDateTime, toInputDateTime } from '@/lib/format';
 
+const majorityLabels = {
+  simple: 'Mayoría simple',
+  tres_quintos: '3/5',
+  un_tercio: '1/3',
+  unanimidad: 'Unanimidad',
+};
+const voteLabels = { favor: 'A favor', contra: 'En contra', abstencion: 'Abstención' };
+
 const emptyForm = {
   title: '',
   date: '',
@@ -140,6 +148,29 @@ export default function Meetings() {
       else draft[id] = 'present';
     });
     setAtt(draft);
+  };
+
+  const refreshDetail = async () => {
+    if (!detail) return;
+    const { data } = await api.get(`/communities/${activeId}/meetings/${detail.meeting._id}`);
+    setDetail(data);
+  };
+
+  const configPoint = async (pointId, body) => {
+    await api.patch(`/communities/${activeId}/meetings/${detail.meeting._id}/agenda/${pointId}`, body);
+    refreshDetail();
+  };
+
+  const vote = async (pointId, value) => {
+    try {
+      await api.post(
+        `/communities/${activeId}/meetings/${detail.meeting._id}/agenda/${pointId}/vote`,
+        { value }
+      );
+      refreshDetail();
+    } catch (err) {
+      flash(err.response?.data?.message || 'No se pudo votar');
+    }
   };
 
   const saveAttendance = async () => {
@@ -411,6 +442,77 @@ export default function Meetings() {
               <p className="text-sm text-muted-foreground">
                 {detail.quorum.ownersPresent} de {detail.quorum.ownersTotal} propietarios presentes.
               </p>
+            )}
+
+            {/* Orden del día y votaciones */}
+            {detail.meeting.agenda?.length > 0 && (
+              <div className="space-y-3">
+                <p className="flex items-center gap-2 text-sm font-semibold">
+                  <ListOrdered className="h-4 w-4" /> Puntos y votaciones
+                </p>
+                {detail.meeting.agenda.map((p, i) => (
+                  <div key={p._id} className="rounded-lg border p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-medium">
+                        {i + 1}. {p.title}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{majorityLabels[p.majorityType]}</Badge>
+                        {p.result.tally.favor + p.result.tally.contra + p.result.tally.abstencion > 0 && (
+                          <Badge variant={p.result.approved ? 'success' : 'destructive'}>
+                            {p.result.approved ? 'Aprobado' : 'No aprobado'}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      A favor {p.result.tally.favor}% · En contra {p.result.tally.contra}% · Abstención{' '}
+                      {p.result.tally.abstencion}%
+                      {p.votingOpen ? ' · votación abierta' : ' · votación cerrada'}
+                    </p>
+
+                    {/* Botones de voto (propietarios, con votación abierta) */}
+                    {detail.canVote && p.votingOpen && (
+                      <div className="mt-2 flex gap-2">
+                        {['favor', 'contra', 'abstencion'].map((v) => (
+                          <Button
+                            key={v}
+                            size="sm"
+                            variant={p.myVote === v ? 'default' : 'outline'}
+                            onClick={() => vote(p._id, v)}
+                          >
+                            {voteLabels[v]}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Controles del gestor */}
+                    {detail.canManage && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <Select
+                          className="h-9 max-w-[12rem]"
+                          value={p.majorityType}
+                          onChange={(e) => configPoint(p._id, { majorityType: e.target.value })}
+                        >
+                          <option value="simple">Mayoría simple</option>
+                          <option value="tres_quintos">3/5</option>
+                          <option value="un_tercio">1/3</option>
+                          <option value="unanimidad">Unanimidad</option>
+                        </Select>
+                        <Button
+                          size="sm"
+                          variant={p.votingOpen ? 'destructive' : 'default'}
+                          onClick={() => configPoint(p._id, { votingOpen: !p.votingOpen })}
+                        >
+                          {p.votingOpen ? 'Cerrar votación' : 'Abrir votación'}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}

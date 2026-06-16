@@ -6,6 +6,20 @@ const agendaPointSchema = new mongoose.Schema(
     order: { type: Number, default: 0 },
     title: { type: String, required: true, trim: true },
     description: { type: String, default: '' },
+    // Mayoría requerida (la declara el gestor; no se deduce automáticamente).
+    majorityType: {
+      type: String,
+      enum: ['simple', 'tres_quintos', 'un_tercio', 'unanimidad'],
+      default: 'simple',
+    },
+    votingOpen: { type: Boolean, default: false },
+    votes: [
+      {
+        _id: false,
+        owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        value: { type: String, enum: ['favor', 'contra', 'abstencion'] },
+      },
+    ],
   },
   { _id: true }
 );

@@ -3,16 +3,33 @@ import Membership from '../models/Membership.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { sendEmail, baseTemplate } from '../utils/email.js';
 
-// Normaliza el orden del día recibido del cliente.
+// Normaliza el orden del día recibido del cliente (conserva _id si viene).
 function normalizeAgenda(agenda) {
   if (!Array.isArray(agenda)) return undefined;
   return agenda
     .filter((p) => p && p.title && p.title.trim())
     .map((p, i) => ({
+      _id: p._id,
       order: p.order ?? i,
       title: p.title.trim(),
       description: (p.description || '').trim(),
     }));
+}
+
+// Fusiona el orden del día entrante con el existente preservando los datos de
+// votación (majorityType, votingOpen, votes) de los puntos que ya existían.
+function mergeAgenda(existing, incoming) {
+  const byId = new Map(existing.map((p) => [p._id.toString(), p]));
+  return incoming.map((p) => {
+    const prev = p._id && byId.get(p._id.toString());
+    if (prev) {
+      prev.order = p.order;
+      prev.title = p.title;
+      prev.description = p.description;
+      return prev;
+    }
+    return { order: p.order, title: p.title, description: p.description };
+  });
 }
 
 // Propietarios de la comunidad (los únicos con coeficiente y derecho a voto).
@@ -66,6 +83,42 @@ function computeQuorum(owners, attendance) {
   };
 }
 
+// Computa el resultado de un punto: votos ponderados por coeficiente y si el
+// acuerdo se aprueba según la mayoría requerida.
+function computeResult(point, owners) {
+  const coefById = new Map(owners.map((o) => [o.user.toString(), o.coefficient]));
+  const totalCoef = owners.reduce((s, o) => s + o.coefficient, 0) || 1;
+  const ownersTotal = owners.length || 1;
+
+  const tally = { favor: 0, contra: 0, abstencion: 0 };
+  const count = { favor: 0, contra: 0, abstencion: 0 };
+  for (const v of point.votes || []) {
+    const c = coefById.get(v.owner.toString());
+    if (c === undefined) continue; // ignora votos de quien ya no es propietario
+    tally[v.value] += c;
+    count[v.value] += 1;
+  }
+
+  let approved = false;
+  switch (point.majorityType) {
+    case 'unanimidad':
+      approved = tally.contra === 0 && tally.favor > 0;
+      break;
+    case 'tres_quintos':
+      approved = tally.favor >= 0.6 * totalCoef && count.favor >= 0.6 * ownersTotal;
+      break;
+    case 'un_tercio':
+      approved = tally.favor >= totalCoef / 3 && count.favor >= ownersTotal / 3;
+      break;
+    case 'simple':
+    default:
+      approved = tally.favor > tally.contra;
+      break;
+  }
+
+  return { tally, count, approved };
+}
+
 export { getOwners, computeQuorum };
 
 // GET /api/communities/:communityId/meetings
@@ -84,7 +137,23 @@ export const getMeeting = asyncHandler(async (req, res) => {
   }
   const owners = await getOwners(req.community._id);
   const quorum = computeQuorum(owners, meeting.attendance);
-  res.json({ meeting, owners, quorum, canManage: req.canManage });
+
+  const userId = req.user._id.toString();
+  const canVote = owners.some((o) => o.user.toString() === userId);
+
+  // Adjunta a cada punto su resultado y el voto del usuario actual.
+  const obj = meeting.toObject();
+  obj.agenda = (obj.agenda || [])
+    .sort((a, b) => a.order - b.order)
+    .map((p) => {
+      const myVote = (p.votes || []).find((v) => v.owner.toString() === userId)?.value || null;
+      const result = computeResult(p, owners);
+      // No exponemos el detalle de votos individuales, solo el cómputo.
+      const { votes, ...rest } = p;
+      return { ...rest, result, myVote };
+    });
+
+  res.json({ meeting: obj, owners, quorum, canManage: req.canManage, canVote });
 });
 
 // PUT /api/communities/:communityId/meetings/:meetingId/attendance  (gestores)
@@ -138,9 +207,69 @@ export const updateMeeting = asyncHandler(async (req, res) => {
   if (location !== undefined) meeting.location = location;
   if (notes !== undefined) meeting.notes = notes;
   if (status !== undefined) meeting.status = status === 'held' ? 'held' : 'upcoming';
-  if (agenda !== undefined) meeting.agenda = normalizeAgenda(agenda) || [];
+  if (agenda !== undefined) {
+    meeting.agenda = mergeAgenda(meeting.agenda, normalizeAgenda(agenda) || []);
+  }
   await meeting.save();
   res.json({ meeting });
+});
+
+// PATCH /api/communities/:communityId/meetings/:meetingId/agenda/:pointId  (gestores)
+// Configura un punto: tipo de mayoría y abrir/cerrar la votación.
+export const updateAgendaPoint = asyncHandler(async (req, res) => {
+  const meeting = await Meeting.findOne({ _id: req.params.meetingId, community: req.community._id });
+  if (!meeting) return res.status(404).json({ message: 'Junta no encontrada' });
+  const point = meeting.agenda.id(req.params.pointId);
+  if (!point) return res.status(404).json({ message: 'Punto del orden del día no encontrado' });
+
+  const { majorityType, votingOpen } = req.body;
+  if (majorityType !== undefined && ['simple', 'tres_quintos', 'un_tercio', 'unanimidad'].includes(majorityType)) {
+    point.majorityType = majorityType;
+  }
+  if (votingOpen !== undefined) point.votingOpen = Boolean(votingOpen);
+  await meeting.save();
+  res.json({ message: 'Punto actualizado' });
+});
+
+// POST /api/communities/:communityId/meetings/:meetingId/agenda/:pointId/vote
+// Emite un voto. Un propietario vota lo suyo; un gestor o el representante
+// (proxy) puede votar en nombre de otro propietario (parámetro `owner`).
+export const castVote = asyncHandler(async (req, res) => {
+  const meeting = await Meeting.findOne({ _id: req.params.meetingId, community: req.community._id });
+  if (!meeting) return res.status(404).json({ message: 'Junta no encontrada' });
+  const point = meeting.agenda.id(req.params.pointId);
+  if (!point) return res.status(404).json({ message: 'Punto no encontrado' });
+  if (!point.votingOpen) return res.status(400).json({ message: 'La votación de este punto está cerrada' });
+
+  const { value, owner } = req.body;
+  if (!['favor', 'contra', 'abstencion'].includes(value)) {
+    return res.status(400).json({ message: 'Voto no válido' });
+  }
+
+  const owners = await getOwners(req.community._id);
+  const targetId = (owner || req.user._id).toString();
+
+  // El destinatario del voto debe ser propietario.
+  if (!owners.some((o) => o.user.toString() === targetId)) {
+    return res.status(400).json({ message: 'Solo los propietarios tienen derecho a voto' });
+  }
+
+  // Permisos: votas lo tuyo; gestor o representante puede votar por otro.
+  const isSelf = targetId === req.user._id.toString();
+  const isProxy = meeting.attendance.some(
+    (a) => a.owner?.toString() === targetId && a.proxyTo?.toString() === req.user._id.toString()
+  );
+  if (!isSelf && !req.canManage && !isProxy) {
+    return res.status(403).json({ message: 'No puedes votar en nombre de ese propietario' });
+  }
+
+  // Un voto por propietario y punto (upsert).
+  const existing = point.votes.find((v) => v.owner.toString() === targetId);
+  if (existing) existing.value = value;
+  else point.votes.push({ owner: targetId, value });
+  await meeting.save();
+
+  res.json({ result: computeResult(point, owners) });
 });
 
 // POST /api/communities/:communityId/meetings/:meetingId/convocatoria  (gestores)

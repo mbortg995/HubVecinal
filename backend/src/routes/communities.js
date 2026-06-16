@@ -26,6 +26,8 @@ import {
   sendConvocatoria,
   getMeeting,
   setAttendance,
+  updateAgendaPoint,
+  castVote,
 } from '../controllers/meetingController.js';
 import { listTopics, createTopic, updateTopic, deleteTopic } from '../controllers/topicController.js';
 import {
@@ -87,6 +89,8 @@ router.post('/:communityId/meetings', requireManage, createMeeting);
 router.patch('/:communityId/meetings/:meetingId', requireManage, updateMeeting);
 router.post('/:communityId/meetings/:meetingId/convocatoria', requireManage, sendConvocatoria);
 router.put('/:communityId/meetings/:meetingId/attendance', requireManage, setAttendance);
+router.patch('/:communityId/meetings/:meetingId/agenda/:pointId', requireManage, updateAgendaPoint);
+router.post('/:communityId/meetings/:meetingId/agenda/:pointId/vote', castVote);
 router.delete('/:communityId/meetings/:meetingId', requireManage, deleteMeeting);
 
 // Temas.
