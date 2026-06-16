@@ -10,6 +10,7 @@ const invitationSchema = new mongoose.Schema(
     email: { type: String, required: true, lowercase: true, trim: true },
     role: { type: String, enum: ['admin', 'president', 'owner'], default: 'owner' },
     unit: { type: String, trim: true, default: '' },
+    coefficient: { type: Number, default: 0, min: 0 },
     token: {
       type: String,
       unique: true,

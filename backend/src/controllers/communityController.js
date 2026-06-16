@@ -132,6 +132,7 @@ export const listMembers = asyncHandler(async (req, res) => {
     user: m.user,
     role: m.role,
     unit: m.unit,
+    coefficient: m.coefficient,
   }));
   res.json({ members });
 });

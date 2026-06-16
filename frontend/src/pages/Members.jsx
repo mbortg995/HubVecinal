@@ -23,7 +23,7 @@ export default function Members() {
   const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ email: '', role: 'owner', unit: '' });
+  const [form, setForm] = useState({ email: '', role: 'owner', unit: '', coefficient: '' });
   const [error, setError] = useState('');
   const [copiedId, setCopiedId] = useState(null);
 
@@ -46,8 +46,11 @@ export default function Members() {
     e.preventDefault();
     setError('');
     try {
-      await api.post(`/communities/${activeId}/invitations`, form);
-      setForm({ email: '', role: 'owner', unit: '' });
+      await api.post(`/communities/${activeId}/invitations`, {
+        ...form,
+        coefficient: Number(form.coefficient) || 0,
+      });
+      setForm({ email: '', role: 'owner', unit: '', coefficient: '' });
       setOpen(false);
       load();
     } catch (err) {
@@ -73,6 +76,10 @@ export default function Members() {
     setCopiedId(inv._id);
     setTimeout(() => setCopiedId(null), 1500);
   };
+
+  // Suma de coeficientes de la comunidad (debería rondar el 100%).
+  const totalCoefficient = members.reduce((sum, m) => sum + (m.coefficient || 0), 0);
+  const coefficientOff = canManage && members.length > 0 && Math.abs(totalCoefficient - 100) > 0.01;
 
   // Un superadmin puede conceder rol admin; el resto de gestores solo owner/president.
   const roleOptions =
@@ -105,6 +112,13 @@ export default function Members() {
         <p className="text-muted-foreground">Cargando…</p>
       ) : (
         <div className="space-y-6">
+          {coefficientOff && (
+            <div className="rounded-md bg-amber-50 px-4 py-2 text-sm text-amber-700">
+              La suma de coeficientes de participación es {totalCoefficient.toFixed(2)}% (debería ser
+              100%). Revisa los coeficientes de las viviendas.
+            </div>
+          )}
+
           {/* Invitaciones pendientes (solo gestores) */}
           {canManage && invitations.length > 0 && (
             <Card>
@@ -166,6 +180,9 @@ export default function Members() {
                     <div className="flex flex-col items-end gap-1">
                       {m.unit && <Badge variant="secondary">{m.unit}</Badge>}
                       <Badge variant={meta.variant}>{meta.label}</Badge>
+                      {m.coefficient > 0 && (
+                        <span className="text-xs text-muted-foreground">{m.coefficient}%</span>
+                      )}
                     </div>
                     {canManage && (
                       <Button variant="ghost" size="icon" onClick={() => removeMember(m)}>
@@ -221,6 +238,18 @@ export default function Members() {
                 placeholder="Ej. 3ºB"
               />
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="coefficient">Coeficiente de participación (%)</Label>
+            <Input
+              id="coefficient"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.coefficient}
+              onChange={(e) => setForm((f) => ({ ...f, coefficient: e.target.value }))}
+              placeholder="Ej. 3.25"
+            />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex justify-end gap-2">
