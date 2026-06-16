@@ -174,15 +174,15 @@ export function Layout({ children }) {
           </div>
         )}
 
-        <nav className="order-last flex items-center justify-around border-t bg-card py-2 md:hidden">
-          {navItems.slice(0, 5).map(({ to, label, icon: Icon, end }) => (
+        <nav className="order-last flex items-center gap-1 overflow-x-auto border-t bg-card px-2 py-2 md:hidden">
+          {navItems.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
               className={({ isActive }) =>
                 cn(
-                  'flex flex-col items-center gap-0.5 px-2 text-[10px]',
+                  'flex shrink-0 min-w-[62px] flex-col items-center gap-0.5 px-1 text-center text-[10px]',
                   isActive ? 'text-primary' : 'text-muted-foreground'
                 )
               }
