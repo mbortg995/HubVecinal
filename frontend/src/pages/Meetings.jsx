@@ -10,6 +10,8 @@ import {
   X,
   Users,
   ClipboardList,
+  FileText,
+  Download,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useCommunities } from '@/context/CommunityContext';
@@ -54,6 +56,7 @@ export default function Meetings() {
   // Detalle de junta (quórum, asistencia, votaciones).
   const [detail, setDetail] = useState(null);
   const [att, setAtt] = useState({}); // ownerId -> 'absent' | 'present' | 'proxy:<id>'
+  const [actaFile, setActaFile] = useState(null);
 
   const load = useCallback(() => {
     if (!activeId) return;
@@ -171,6 +174,35 @@ export default function Meetings() {
     } catch (err) {
       flash(err.response?.data?.message || 'No se pudo votar');
     }
+  };
+
+  const uploadActa = async () => {
+    if (!actaFile) return;
+    const fd = new FormData();
+    fd.append('file', actaFile);
+    await api.post(`/communities/${activeId}/meetings/${detail.meeting._id}/acta`, fd);
+    setActaFile(null);
+    refreshDetail();
+    flash('Acta adjuntada');
+  };
+
+  const downloadActa = async () => {
+    const doc = detail.meeting.acta;
+    const res = await api.get(`/communities/${activeId}/documents/${doc._id}/download`, {
+      responseType: 'blob',
+    });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = doc.originalName || doc.name;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const removeActa = async () => {
+    if (!confirm('¿Eliminar el acta adjunta?')) return;
+    await api.delete(`/communities/${activeId}/meetings/${detail.meeting._id}/acta`);
+    refreshDetail();
   };
 
   const saveAttendance = async () => {
@@ -514,6 +546,37 @@ export default function Meetings() {
                 ))}
               </div>
             )}
+
+            {/* Acta (PDF) */}
+            <div className="space-y-2 border-t pt-4">
+              <p className="flex items-center gap-2 text-sm font-semibold">
+                <FileText className="h-4 w-4" /> Acta
+              </p>
+              {detail.meeting.acta ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2">
+                  <span className="text-sm">{detail.meeting.acta.name}</span>
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="sm" onClick={downloadActa}>
+                      <Download className="h-4 w-4" /> Descargar
+                    </Button>
+                    {detail.canManage && (
+                      <Button variant="ghost" size="icon" onClick={removeActa}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ) : detail.canManage ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input type="file" accept="application/pdf" onChange={(e) => setActaFile(e.target.files?.[0] || null)} />
+                  <Button size="sm" onClick={uploadActa} disabled={!actaFile}>
+                    Adjuntar acta
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Aún no se ha adjuntado el acta.</p>
+              )}
+            </div>
           </div>
         )}
       </Dialog>

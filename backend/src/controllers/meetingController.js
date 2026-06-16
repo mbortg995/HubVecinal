@@ -1,7 +1,9 @@
 import Meeting from '../models/Meeting.js';
 import Membership from '../models/Membership.js';
+import Document from '../models/Document.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { sendEmail, baseTemplate } from '../utils/email.js';
+import { deleteFile } from '../utils/files.js';
 
 // Normaliza el orden del día recibido del cliente (conserva _id si viene).
 function normalizeAgenda(agenda) {
@@ -131,7 +133,8 @@ export const listMeetings = asyncHandler(async (req, res) => {
 export const getMeeting = asyncHandler(async (req, res) => {
   const meeting = await Meeting.findOne({ _id: req.params.meetingId, community: req.community._id })
     .populate('attendance.owner', 'name')
-    .populate('attendance.proxyTo', 'name');
+    .populate('attendance.proxyTo', 'name')
+    .populate('acta', 'name originalName mimeType');
   if (!meeting) {
     return res.status(404).json({ message: 'Junta no encontrada' });
   }
@@ -270,6 +273,47 @@ export const castVote = asyncHandler(async (req, res) => {
   await meeting.save();
 
   res.json({ result: computeResult(point, owners) });
+});
+
+// POST /api/communities/:communityId/meetings/:meetingId/acta  (gestores, multipart)
+// Adjunta el acta oficial (PDF). No se genera: la sube la administración.
+export const uploadActa = asyncHandler(async (req, res) => {
+  const meeting = await Meeting.findOne({ _id: req.params.meetingId, community: req.community._id });
+  if (!meeting) return res.status(404).json({ message: 'Junta no encontrada' });
+  if (!req.file) return res.status(400).json({ message: 'No se ha adjuntado ningún archivo' });
+
+  // Sustituye el acta anterior si la había.
+  if (meeting.acta) {
+    const prev = await Document.findByIdAndDelete(meeting.acta);
+    if (prev) deleteFile(prev.filename);
+  }
+
+  const doc = await Document.create({
+    community: req.community._id,
+    name: `Acta · ${meeting.title}`,
+    category: 'acta',
+    filename: req.file.filename,
+    originalName: req.file.originalname,
+    mimeType: req.file.mimetype,
+    size: req.file.size,
+    uploadedBy: req.user._id,
+  });
+  meeting.acta = doc._id;
+  await meeting.save();
+  res.status(201).json({ acta: doc });
+});
+
+// DELETE /api/communities/:communityId/meetings/:meetingId/acta  (gestores)
+export const deleteActa = asyncHandler(async (req, res) => {
+  const meeting = await Meeting.findOne({ _id: req.params.meetingId, community: req.community._id });
+  if (!meeting) return res.status(404).json({ message: 'Junta no encontrada' });
+  if (meeting.acta) {
+    const doc = await Document.findByIdAndDelete(meeting.acta);
+    if (doc) deleteFile(doc.filename);
+    meeting.acta = null;
+    await meeting.save();
+  }
+  res.json({ message: 'Acta eliminada' });
 });
 
 // POST /api/communities/:communityId/meetings/:meetingId/convocatoria  (gestores)

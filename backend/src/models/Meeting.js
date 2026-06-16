@@ -54,7 +54,9 @@ const meetingSchema = new mongoose.Schema(
         proxyTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
       },
     ],
-    // Acta / notas de la junta.
+    // Acta oficial (PDF) adjunta, guardada como Document (categoría 'acta').
+    acta: { type: mongoose.Schema.Types.ObjectId, ref: 'Document', default: null },
+    // Notas internas de la junta.
     notes: { type: String, default: '' },
     // Marca de cuándo se envió la convocatoria por email.
     convocatoriaSentAt: { type: Date, default: null },
