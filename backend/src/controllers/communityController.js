@@ -125,7 +125,7 @@ export const getCommunity = asyncHandler(async (req, res) => {
 export const listMembers = asyncHandler(async (req, res) => {
   const memberships = await Membership.find({ community: req.community._id }).populate(
     'user',
-    'name email'
+    'name email nif phone'
   );
   const members = memberships.map((m) => ({
     _id: m._id,
@@ -133,6 +133,7 @@ export const listMembers = asyncHandler(async (req, res) => {
     role: m.role,
     unit: m.unit,
     coefficient: m.coefficient,
+    isResident: m.isResident,
   }));
   res.json({ members });
 });

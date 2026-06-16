@@ -7,7 +7,7 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 
 // POST /api/communities/:communityId/invitations  → crear invitación (gestores).
 export const createInvitation = asyncHandler(async (req, res) => {
-  const { email, role, unit, coefficient } = req.body;
+  const { email, role, unit, coefficient, isResident } = req.body;
   if (!email) {
     return res.status(400).json({ message: 'El email del invitado es obligatorio' });
   }
@@ -39,10 +39,12 @@ export const createInvitation = asyncHandler(async (req, res) => {
     status: 'pending',
   });
 
+  const resident = isResident === undefined ? true : Boolean(isResident);
   if (invitation) {
     invitation.role = wantedRole;
     invitation.unit = unit || '';
     invitation.coefficient = Number(coefficient) || 0;
+    invitation.isResident = resident;
     await invitation.save();
   } else {
     invitation = await Invitation.create({
@@ -52,6 +54,7 @@ export const createInvitation = asyncHandler(async (req, res) => {
       role: wantedRole,
       unit: unit || '',
       coefficient: Number(coefficient) || 0,
+      isResident: resident,
       invitedBy: req.user._id,
     });
   }
@@ -142,7 +145,14 @@ export const acceptInvitation = asyncHandler(async (req, res) => {
   // Crea la membresía si aún no existe.
   await Membership.findOneAndUpdate(
     { user: user._id, community: community._id },
-    { $setOnInsert: { role: invitation.role, unit: invitation.unit, coefficient: invitation.coefficient } },
+    {
+      $setOnInsert: {
+        role: invitation.role,
+        unit: invitation.unit,
+        coefficient: invitation.coefficient,
+        isResident: invitation.isResident,
+      },
+    },
     { upsert: true, new: true }
   );
 

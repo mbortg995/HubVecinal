@@ -19,10 +19,11 @@ const roleLabels = {
 
 export default function Settings() {
   const { activeId, canManage, role, isSuperadmin, reload } = useCommunities();
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [form, setForm] = useState({ name: '', address: '' });
+  const [profile, setProfile] = useState({ name: '', nif: '', phone: '' });
   const [msg, setMsg] = useState('');
 
   const fetchDetail = () => {
@@ -34,6 +35,11 @@ export default function Settings() {
   };
 
   useEffect(fetchDetail, [activeId]);
+
+  // Carga los datos del usuario en el formulario de perfil.
+  useEffect(() => {
+    if (user) setProfile({ name: user.name || '', nif: user.nif || '', phone: user.phone || '' });
+  }, [user]);
 
   if (!data) return <p className="text-muted-foreground">Cargando…</p>;
 
@@ -50,6 +56,12 @@ export default function Settings() {
     await reload();
     fetchDetail();
     flash('Datos de la comunidad actualizados');
+  };
+
+  const saveProfile = async (e) => {
+    e.preventDefault();
+    await updateProfile(profile);
+    flash('Tus datos se han actualizado');
   };
 
   const deleteCommunity = async () => {
@@ -125,20 +137,42 @@ export default function Settings() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Tu cuenta</CardTitle>
+            <CardDescription>
+              {user.email} · Rol en esta comunidad: {roleLabels[role] || '—'}
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Nombre</span>
-              <span className="font-medium">{user.name}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Email</span>
-              <span className="font-medium">{user.email}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Rol en esta comunidad</span>
-              <span className="font-medium">{roleLabels[role] || '—'}</span>
-            </div>
+          <CardContent>
+            <form onSubmit={saveProfile} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="pname">Nombre</Label>
+                <Input
+                  id="pname"
+                  value={profile.name}
+                  onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="pnif">NIF</Label>
+                  <Input
+                    id="pnif"
+                    value={profile.nif}
+                    onChange={(e) => setProfile((p) => ({ ...p, nif: e.target.value }))}
+                    placeholder="00000000X"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="pphone">Teléfono</Label>
+                  <Input
+                    id="pphone"
+                    value={profile.phone}
+                    onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))}
+                    placeholder="600 000 000"
+                  />
+                </div>
+              </div>
+              <Button type="submit">Guardar mis datos</Button>
+            </form>
           </CardContent>
         </Card>
 

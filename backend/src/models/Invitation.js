@@ -11,6 +11,7 @@ const invitationSchema = new mongoose.Schema(
     role: { type: String, enum: ['admin', 'president', 'owner'], default: 'owner' },
     unit: { type: String, trim: true, default: '' },
     coefficient: { type: Number, default: 0, min: 0 },
+    isResident: { type: Boolean, default: true },
     token: {
       type: String,
       unique: true,

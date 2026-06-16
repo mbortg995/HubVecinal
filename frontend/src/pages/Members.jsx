@@ -176,12 +176,18 @@ export default function Members() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">{m.user?.name}</p>
                       <p className="truncate text-sm text-muted-foreground">{m.user?.email}</p>
+                      {canManage && m.user?.nif && (
+                        <p className="truncate text-xs text-muted-foreground">NIF: {m.user.nif}</p>
+                      )}
                     </div>
                     <div className="flex flex-col items-end gap-1">
                       {m.unit && <Badge variant="secondary">{m.unit}</Badge>}
                       <Badge variant={meta.variant}>{meta.label}</Badge>
                       {m.coefficient > 0 && (
                         <span className="text-xs text-muted-foreground">{m.coefficient}%</span>
+                      )}
+                      {!m.isResident && (
+                        <span className="text-xs text-muted-foreground">No reside</span>
                       )}
                     </div>
                     {canManage && (

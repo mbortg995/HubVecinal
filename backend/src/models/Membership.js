@@ -25,6 +25,8 @@ const membershipSchema = new mongoose.Schema(
     // Coeficiente de participación (% de la vivienda). Base del reparto de
     // cuotas y del peso de voto en las juntas.
     coefficient: { type: Number, default: 0, min: 0 },
+    // ¿Reside en la vivienda? (un propietario puede tenerla alquilada).
+    isResident: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

@@ -58,3 +58,13 @@ export const me = asyncHandler(async (req, res) => {
   const memberships = await Membership.find({ user: user._id }).select('community role unit');
   res.json({ user: user.toSafeObject(), memberships });
 });
+
+// PATCH /api/auth/me  → el usuario actualiza sus propios datos.
+export const updateMe = asyncHandler(async (req, res) => {
+  const { name, nif, phone } = req.body;
+  if (name !== undefined) req.user.name = name;
+  if (nif !== undefined) req.user.nif = nif;
+  if (phone !== undefined) req.user.phone = phone;
+  await req.user.save();
+  res.json({ user: req.user.toSafeObject() });
+});

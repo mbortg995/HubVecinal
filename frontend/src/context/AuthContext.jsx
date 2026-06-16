@@ -58,6 +58,13 @@ export function AuthProvider({ children }) {
     return data.user;
   }, []);
 
+  // El usuario actualiza sus propios datos (nombre, NIF, teléfono).
+  const updateProfile = useCallback(async (payload) => {
+    const { data } = await api.patch('/auth/me', payload);
+    setUser((prev) => ({ ...prev, ...data.user }));
+    return data.user;
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem('hv_token');
     setUser(null);
@@ -65,7 +72,16 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, registerOrganization, setSession, logout, refreshUser }}
+      value={{
+        user,
+        loading,
+        login,
+        registerOrganization,
+        setSession,
+        logout,
+        refreshUser,
+        updateProfile,
+      }}
     >
       {children}
     </AuthContext.Provider>
