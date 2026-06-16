@@ -9,6 +9,7 @@ import {
   TrendingDown,
   MapPin,
   Users,
+  Megaphone,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useCommunities } from '@/context/CommunityContext';
@@ -35,7 +36,15 @@ export default function Dashboard() {
     return <p className="text-muted-foreground">Cargando el hub de tu comunidad…</p>;
   }
 
-  const { community, funds, upcomingMeetings, lastHeldMeeting, pendingTopics, resolvedTopics } = data;
+  const {
+    community,
+    funds,
+    upcomingMeetings,
+    lastHeldMeeting,
+    pendingTopics,
+    resolvedTopics,
+    announcements = [],
+  } = data;
   const lastMeetingTopics = resolvedTopics.filter(
     (t) => t.meeting && lastHeldMeeting && t.meeting === lastHeldMeeting._id
   );
@@ -103,6 +112,27 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {announcements.length > 0 && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Megaphone className="h-4 w-4" /> Avisos
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {announcements.map((a) => (
+              <div key={a._id} className="rounded-lg border p-3">
+                <p className="font-medium">{a.title}</p>
+                {a.body && <p className="text-sm text-muted-foreground">{a.body}</p>}
+              </div>
+            ))}
+            <Link to="/avisos" className="block text-sm font-medium text-primary hover:underline">
+              Ver todos los avisos →
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         {/* Próximas juntas */}

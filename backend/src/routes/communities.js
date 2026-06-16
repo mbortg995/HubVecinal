@@ -40,6 +40,12 @@ import {
   deleteIncident,
 } from '../controllers/incidentController.js';
 import {
+  listAnnouncements,
+  createAnnouncement,
+  updateAnnouncement,
+  deleteAnnouncement,
+} from '../controllers/announcementController.js';
+import {
   listTransactions,
   createTransaction,
   deleteTransaction,
@@ -82,6 +88,12 @@ router.get('/:communityId/topics', listTopics);
 router.post('/:communityId/topics', requireManage, createTopic);
 router.patch('/:communityId/topics/:topicId', requireManage, updateTopic);
 router.delete('/:communityId/topics/:topicId', requireManage, deleteTopic);
+
+// Avisos / tablón.
+router.get('/:communityId/announcements', listAnnouncements);
+router.post('/:communityId/announcements', requireManage, createAnnouncement);
+router.patch('/:communityId/announcements/:announcementId', requireManage, updateAnnouncement);
+router.delete('/:communityId/announcements/:announcementId', requireManage, deleteAnnouncement);
 
 // Documentos.
 router.get('/:communityId/documents', listDocuments);
