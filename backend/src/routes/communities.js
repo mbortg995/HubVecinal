@@ -23,6 +23,7 @@ import {
   createMeeting,
   updateMeeting,
   deleteMeeting,
+  sendConvocatoria,
 } from '../controllers/meetingController.js';
 import { listTopics, createTopic, updateTopic, deleteTopic } from '../controllers/topicController.js';
 import {
@@ -81,6 +82,7 @@ router.delete('/:communityId/invitations/:invitationId', requireManage, revokeIn
 router.get('/:communityId/meetings', listMeetings);
 router.post('/:communityId/meetings', requireManage, createMeeting);
 router.patch('/:communityId/meetings/:meetingId', requireManage, updateMeeting);
+router.post('/:communityId/meetings/:meetingId/convocatoria', requireManage, sendConvocatoria);
 router.delete('/:communityId/meetings/:meetingId', requireManage, deleteMeeting);
 
 // Temas.

@@ -1,5 +1,15 @@
 import mongoose from 'mongoose';
 
+// Punto del orden del día.
+const agendaPointSchema = new mongoose.Schema(
+  {
+    order: { type: Number, default: 0 },
+    title: { type: String, required: true, trim: true },
+    description: { type: String, default: '' },
+  },
+  { _id: true }
+);
+
 const meetingSchema = new mongoose.Schema(
   {
     community: {
@@ -10,6 +20,8 @@ const meetingSchema = new mongoose.Schema(
     },
     title: { type: String, required: true, trim: true },
     date: { type: Date, required: true },
+    // Segunda convocatoria (opcional). La 1ª es `date`.
+    secondCallDate: { type: Date, default: null },
     location: { type: String, trim: true, default: '' },
     // 'upcoming': próxima junta. 'held': junta ya celebrada.
     status: {
@@ -17,8 +29,12 @@ const meetingSchema = new mongoose.Schema(
       enum: ['upcoming', 'held'],
       default: 'upcoming',
     },
+    // Orden del día.
+    agenda: [agendaPointSchema],
     // Acta / notas de la junta.
     notes: { type: String, default: '' },
+    // Marca de cuándo se envió la convocatoria por email.
+    convocatoriaSentAt: { type: Date, default: null },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }
