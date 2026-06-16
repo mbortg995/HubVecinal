@@ -12,6 +12,9 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
     password: { type: String, required: true, minlength: 6, select: false },
+    // Datos de contacto/identificación (opcionales). Sin IBAN: no hay SEPA.
+    nif: { type: String, trim: true, default: '' },
+    phone: { type: String, trim: true, default: '' },
     // Rol a nivel de plataforma:
     //  - 'superadmin': pertenece a una organización (administradora) y gestiona
     //                  TODAS las comunidades de esa organización.

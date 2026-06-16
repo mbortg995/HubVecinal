@@ -22,6 +22,14 @@ const membershipSchema = new mongoose.Schema(
     },
     // Vivienda concreta dentro de la comunidad, p.ej. "3ºB".
     unit: { type: String, trim: true, default: '' },
+    // Coeficiente de participación (% de la vivienda). Base del reparto de
+    // cuotas y del peso de voto en las juntas.
+    coefficient: { type: Number, default: 0, min: 0 },
+    // ¿Reside en la vivienda? (un propietario puede tenerla alquilada).
+    isResident: { type: Boolean, default: true },
+    // Relación con la vivienda: 'owner' (propietario, vota y paga cuotas)
+    // o 'tenant' (inquilino, accede al portal pero no vota ni recibe cuotas).
+    occupantType: { type: String, enum: ['owner', 'tenant'], default: 'owner' },
   },
   { timestamps: true }
 );

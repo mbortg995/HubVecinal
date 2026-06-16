@@ -9,6 +9,7 @@ import {
   updateCommunity,
   deleteCommunity,
   removeMember,
+  updateMember,
 } from '../controllers/communityController.js';
 import {
   createInvitation,
@@ -45,6 +46,7 @@ router.delete('/:communityId', deleteCommunity);
 
 // Vecinos / membresías.
 router.get('/:communityId/members', listMembers);
+router.patch('/:communityId/members/:membershipId', requireManage, updateMember);
 router.delete('/:communityId/members/:membershipId', requireManage, removeMember);
 
 // Invitaciones.

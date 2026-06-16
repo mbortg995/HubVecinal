@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Crown, ShieldCheck, User, Plus, Trash2, Copy, Check, Mail, X } from 'lucide-react';
+import { Crown, ShieldCheck, User, Plus, Trash2, Copy, Check, Mail, X, Pencil } from 'lucide-react';
 import api from '@/lib/api';
 import { useCommunities } from '@/context/CommunityContext';
 import { PageHeader } from '@/components/PageHeader';
@@ -17,15 +17,49 @@ const roleMeta = {
   owner: { label: 'Propietario', icon: User, variant: 'secondary' },
 };
 
+// Etiqueta/estilo de un miembro según su rol y, si es propietario regular,
+// según sea propietario o inquilino.
+function memberMeta(m) {
+  if (m.role === 'owner' && m.occupantType === 'tenant') {
+    return { label: 'Inquilino', icon: User, variant: 'secondary' };
+  }
+  return roleMeta[m.role] || roleMeta.owner;
+}
+
+// Opciones del selector "Tipo de miembro": combinan rol + tipo de ocupante.
+const memberTypeOptions = [
+  { key: 'propietario', label: 'Propietario', role: 'owner', occupantType: 'owner' },
+  { key: 'inquilino', label: 'Inquilino', role: 'owner', occupantType: 'tenant' },
+  { key: 'presidente', label: 'Presidente', role: 'president', occupantType: 'owner' },
+  { key: 'administrador', label: 'Administrador', role: 'admin', occupantType: 'owner' },
+];
+const typeKey = (role, occupantType) =>
+  memberTypeOptions.find((o) => o.role === role && o.occupantType === occupantType)?.key ||
+  'propietario';
+
 export default function Members() {
   const { activeId, canManage, role: myRole } = useCommunities();
   const [members, setMembers] = useState([]);
   const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ email: '', role: 'owner', unit: '' });
+  const [form, setForm] = useState({
+    email: '',
+    role: 'owner',
+    occupantType: 'owner',
+    unit: '',
+    coefficient: '',
+  });
   const [error, setError] = useState('');
   const [copiedId, setCopiedId] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [editForm, setEditForm] = useState({
+    unit: '',
+    coefficient: '',
+    isResident: true,
+    role: 'owner',
+    occupantType: 'owner',
+  });
 
   const load = useCallback(() => {
     if (!activeId) return;
@@ -46,8 +80,11 @@ export default function Members() {
     e.preventDefault();
     setError('');
     try {
-      await api.post(`/communities/${activeId}/invitations`, form);
-      setForm({ email: '', role: 'owner', unit: '' });
+      await api.post(`/communities/${activeId}/invitations`, {
+        ...form,
+        coefficient: Number(form.coefficient) || 0,
+      });
+      setForm({ email: '', role: 'owner', occupantType: 'owner', unit: '', coefficient: '' });
       setOpen(false);
       load();
     } catch (err) {
@@ -59,6 +96,39 @@ export default function Members() {
     if (!confirm(`¿Revocar la invitación a ${inv.email}?`)) return;
     await api.delete(`/communities/${activeId}/invitations/${inv._id}`);
     load();
+  };
+
+  const openEdit = (m) => {
+    setEditing(m);
+    setEditForm({
+      unit: m.unit || '',
+      coefficient: m.coefficient ?? '',
+      isResident: m.isResident !== false,
+      role: m.role,
+      occupantType: m.occupantType || 'owner',
+    });
+    setError('');
+  };
+
+  const submitEdit = async (e) => {
+    e.preventDefault();
+    setError('');
+    try {
+      const payload = {
+        unit: editForm.unit,
+        coefficient: Number(editForm.coefficient) || 0,
+        isResident: editForm.isResident,
+        // El tipo de ocupante solo aplica a propietarios regulares.
+        occupantType: editForm.role === 'owner' ? editForm.occupantType : 'owner',
+      };
+      // El rol solo lo puede cambiar un superadmin.
+      if (myRole === 'superadmin') payload.role = editForm.role;
+      await api.patch(`/communities/${activeId}/members/${editing._id}`, payload);
+      setEditing(null);
+      load();
+    } catch (err) {
+      setError(err.response?.data?.message || 'No se pudo guardar');
+    }
   };
 
   const removeMember = async (m) => {
@@ -74,18 +144,15 @@ export default function Members() {
     setTimeout(() => setCopiedId(null), 1500);
   };
 
-  // Un superadmin puede conceder rol admin; el resto de gestores solo owner/president.
-  const roleOptions =
+  // Suma de coeficientes de la comunidad (debería rondar el 100%).
+  const totalCoefficient = members.reduce((sum, m) => sum + (m.coefficient || 0), 0);
+  const coefficientOff = canManage && members.length > 0 && Math.abs(totalCoefficient - 100) > 0.01;
+
+  // Un superadmin puede conceder rol admin; el resto de gestores no.
+  const typeOptions =
     myRole === 'superadmin'
-      ? [
-          { value: 'owner', label: 'Propietario' },
-          { value: 'president', label: 'Presidente' },
-          { value: 'admin', label: 'Administrador' },
-        ]
-      : [
-          { value: 'owner', label: 'Propietario' },
-          { value: 'president', label: 'Presidente' },
-        ];
+      ? memberTypeOptions
+      : memberTypeOptions.filter((o) => o.role !== 'admin');
 
   return (
     <div>
@@ -105,6 +172,13 @@ export default function Members() {
         <p className="text-muted-foreground">Cargando…</p>
       ) : (
         <div className="space-y-6">
+          {coefficientOff && (
+            <div className="rounded-md bg-amber-50 px-4 py-2 text-sm text-amber-700">
+              La suma de coeficientes de participación es {totalCoefficient.toFixed(2)}% (debería ser
+              100%). Revisa los coeficientes de las viviendas.
+            </div>
+          )}
+
           {/* Invitaciones pendientes (solo gestores) */}
           {canManage && invitations.length > 0 && (
             <Card>
@@ -151,7 +225,7 @@ export default function Members() {
           {/* Miembros */}
           <div className="grid gap-3 sm:grid-cols-2">
             {members.map((m) => {
-              const meta = roleMeta[m.role] || roleMeta.owner;
+              const meta = memberMeta(m);
               const Icon = meta.icon;
               return (
                 <Card key={m._id}>
@@ -162,15 +236,29 @@ export default function Members() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">{m.user?.name}</p>
                       <p className="truncate text-sm text-muted-foreground">{m.user?.email}</p>
+                      {canManage && m.user?.nif && (
+                        <p className="truncate text-xs text-muted-foreground">NIF: {m.user.nif}</p>
+                      )}
                     </div>
                     <div className="flex flex-col items-end gap-1">
                       {m.unit && <Badge variant="secondary">{m.unit}</Badge>}
                       <Badge variant={meta.variant}>{meta.label}</Badge>
+                      {m.coefficient > 0 && (
+                        <span className="text-xs text-muted-foreground">{m.coefficient}%</span>
+                      )}
+                      {!m.isResident && (
+                        <span className="text-xs text-muted-foreground">No reside</span>
+                      )}
                     </div>
                     {canManage && (
-                      <Button variant="ghost" size="icon" onClick={() => removeMember(m)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      <div className="flex flex-col">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(m)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => removeMember(m)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     )}
                   </CardContent>
                 </Card>
@@ -199,14 +287,17 @@ export default function Members() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="role">Rol</Label>
+              <Label htmlFor="memberType">Tipo de miembro</Label>
               <Select
-                id="role"
-                value={form.role}
-                onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+                id="memberType"
+                value={typeKey(form.role, form.occupantType)}
+                onChange={(e) => {
+                  const opt = memberTypeOptions.find((o) => o.key === e.target.value);
+                  setForm((f) => ({ ...f, role: opt.role, occupantType: opt.occupantType }));
+                }}
               >
-                {roleOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
+                {typeOptions.map((o) => (
+                  <option key={o.key} value={o.key}>
                     {o.label}
                   </option>
                 ))}
@@ -222,12 +313,99 @@ export default function Members() {
               />
             </div>
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="coefficient">Coeficiente de participación (%)</Label>
+            <Input
+              id="coefficient"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.coefficient}
+              onChange={(e) => setForm((f) => ({ ...f, coefficient: e.target.value }))}
+              placeholder="Ej. 3.25"
+            />
+          </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
             <Button type="submit">Crear invitación</Button>
+          </div>
+        </form>
+      </Dialog>
+
+      <Dialog
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        title={`Editar a ${editing?.user?.name || ''}`}
+      >
+        <form onSubmit={submitEdit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="eunit">Vivienda</Label>
+              <Input
+                id="eunit"
+                value={editForm.unit}
+                onChange={(e) => setEditForm((f) => ({ ...f, unit: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ecoef">Coeficiente (%)</Label>
+              <Input
+                id="ecoef"
+                type="number"
+                min="0"
+                step="0.01"
+                value={editForm.coefficient}
+                onChange={(e) => setEditForm((f) => ({ ...f, coefficient: e.target.value }))}
+              />
+            </div>
+          </div>
+          {editForm.role === 'owner' && (
+            <div className="space-y-1.5">
+              <Label htmlFor="eoccupant">Tipo de ocupante</Label>
+              <Select
+                id="eoccupant"
+                value={editForm.occupantType}
+                onChange={(e) => setEditForm((f) => ({ ...f, occupantType: e.target.value }))}
+              >
+                <option value="owner">Propietario</option>
+                <option value="tenant">Inquilino</option>
+              </Select>
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="eresident">Residencia</Label>
+            <Select
+              id="eresident"
+              value={editForm.isResident ? 'yes' : 'no'}
+              onChange={(e) => setEditForm((f) => ({ ...f, isResident: e.target.value === 'yes' }))}
+            >
+              <option value="yes">Reside en la vivienda</option>
+              <option value="no">No reside (alquilada / no habitada)</option>
+            </Select>
+          </div>
+          {myRole === 'superadmin' && (
+            <div className="space-y-1.5">
+              <Label htmlFor="erole">Rol</Label>
+              <Select
+                id="erole"
+                value={editForm.role}
+                onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
+              >
+                <option value="owner">Propietario</option>
+                <option value="president">Presidente</option>
+                <option value="admin">Administrador</option>
+              </Select>
+            </div>
+          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setEditing(null)}>
+              Cancelar
+            </Button>
+            <Button type="submit">Guardar</Button>
           </div>
         </form>
       </Dialog>

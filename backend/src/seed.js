@@ -93,12 +93,15 @@ async function seed() {
   await Membership.create([
     { user: adminFincas._id, community: olivos._id, role: 'admin' },
     { user: adminFincas._id, community: robles._id, role: 'admin' },
-    { user: presidente._id, community: olivos._id, role: 'president', unit: '3ºB' },
+    { user: presidente._id, community: olivos._id, role: 'president', unit: '3ºB', coefficient: 25 },
     ...propietarios.map((p) => ({
       user: p.user._id,
       community: olivos._id,
       role: 'owner',
       unit: p.unit,
+      coefficient: 25,
+      // Javier (4ºA) es inquilino: la vivienda está alquilada.
+      occupantType: p.user.email.startsWith('javier') ? 'tenant' : 'owner',
     })),
   ]);
 

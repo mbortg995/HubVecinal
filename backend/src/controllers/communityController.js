@@ -125,13 +125,16 @@ export const getCommunity = asyncHandler(async (req, res) => {
 export const listMembers = asyncHandler(async (req, res) => {
   const memberships = await Membership.find({ community: req.community._id }).populate(
     'user',
-    'name email'
+    'name email nif phone'
   );
   const members = memberships.map((m) => ({
     _id: m._id,
     user: m.user,
     role: m.role,
     unit: m.unit,
+    coefficient: m.coefficient,
+    isResident: m.isResident,
+    occupantType: m.occupantType,
   }));
   res.json({ members });
 });
@@ -159,6 +162,36 @@ export const deleteCommunity = asyncHandler(async (req, res) => {
   ]);
   await req.community.deleteOne();
   res.json({ message: 'Comunidad eliminada' });
+});
+
+// PATCH /api/communities/:communityId/members/:membershipId  → editar membresía (gestores).
+export const updateMember = asyncHandler(async (req, res) => {
+  const membership = await Membership.findOne({
+    _id: req.params.membershipId,
+    community: req.community._id,
+  });
+  if (!membership) {
+    return res.status(404).json({ message: 'Miembro no encontrado' });
+  }
+
+  const { unit, coefficient, isResident, occupantType, role } = req.body;
+  if (unit !== undefined) membership.unit = unit;
+  if (coefficient !== undefined) membership.coefficient = Number(coefficient) || 0;
+  if (isResident !== undefined) membership.isResident = Boolean(isResident);
+  if (occupantType !== undefined && ['owner', 'tenant'].includes(occupantType)) {
+    membership.occupantType = occupantType;
+  }
+
+  // Solo un superadmin puede cambiar el rol de gobierno de un miembro.
+  if (role !== undefined) {
+    if (req.communityRole !== 'superadmin') {
+      return res.status(403).json({ message: 'Solo un superadmin puede cambiar el rol' });
+    }
+    if (['admin', 'president', 'owner'].includes(role)) membership.role = role;
+  }
+
+  await membership.save();
+  res.json({ membership });
 });
 
 // DELETE /api/communities/:communityId/members/:membershipId  → quitar a un vecino (gestores).
