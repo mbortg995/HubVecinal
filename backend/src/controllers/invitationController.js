@@ -2,8 +2,33 @@ import Invitation from '../models/Invitation.js';
 import Community from '../models/Community.js';
 import Membership from '../models/Membership.js';
 import User from '../models/User.js';
+import Organization from '../models/Organization.js';
 import { signToken } from '../utils/token.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { sendEmail, baseTemplate } from '../utils/email.js';
+
+const roleLabels = { admin: 'administrador', president: 'presidente', owner: 'propietario' };
+
+// Construye el enlace de aceptación y envía el email de invitación.
+async function sendInvitationEmail(invitation, communityName, organizationName) {
+  const origin = (process.env.CLIENT_ORIGIN || 'http://localhost:5173').split(',')[0];
+  const url = `${origin}/invitar/${invitation.token}`;
+  const tipo =
+    invitation.role === 'owner' && invitation.occupantType === 'tenant'
+      ? 'inquilino'
+      : roleLabels[invitation.role] || 'propietario';
+  const { html, text } = baseTemplate({
+    title: `Invitación a ${communityName}`,
+    body: `${organizationName || 'La administración'} te invita a unirte a <strong>${communityName}</strong> como <strong>${tipo}</strong>${
+      invitation.unit ? ` (vivienda ${invitation.unit})` : ''
+    }. Pulsa el botón para crear tu cuenta y acceder.`,
+    actionUrl: url,
+    actionLabel: 'Aceptar invitación',
+  });
+  return sendEmail({ to: invitation.email, subject: `Invitación a ${communityName}`, html, text });
+}
+
+export { sendInvitationEmail };
 
 // POST /api/communities/:communityId/invitations  → crear invitación (gestores).
 export const createInvitation = asyncHandler(async (req, res) => {
@@ -62,7 +87,9 @@ export const createInvitation = asyncHandler(async (req, res) => {
     });
   }
 
-  res.status(201).json({ invitation });
+  const org = await Organization.findById(req.community.organization).select('name');
+  const result = await sendInvitationEmail(invitation, req.community.name, org?.name);
+  res.status(201).json({ invitation, emailDelivered: result.delivered });
 });
 
 // GET /api/communities/:communityId/invitations  → invitaciones pendientes (gestores).
@@ -72,6 +99,21 @@ export const listInvitations = asyncHandler(async (req, res) => {
     status: 'pending',
   }).sort({ createdAt: -1 });
   res.json({ invitations });
+});
+
+// POST /api/communities/:communityId/invitations/:invitationId/resend  → reenviar email (gestores).
+export const resendInvitation = asyncHandler(async (req, res) => {
+  const invitation = await Invitation.findOne({
+    _id: req.params.invitationId,
+    community: req.community._id,
+    status: 'pending',
+  });
+  if (!invitation) {
+    return res.status(404).json({ message: 'Invitación no encontrada o ya utilizada' });
+  }
+  const org = await Organization.findById(req.community.organization).select('name');
+  const result = await sendInvitationEmail(invitation, req.community.name, org?.name);
+  res.json({ message: 'Invitación reenviada', emailDelivered: result.delivered });
 });
 
 // DELETE /api/communities/:communityId/invitations/:invitationId  → revocar (gestores).

@@ -3,6 +3,7 @@ import Membership from '../models/Membership.js';
 import Meeting from '../models/Meeting.js';
 import Topic from '../models/Topic.js';
 import Transaction from '../models/Transaction.js';
+import Announcement from '../models/Announcement.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
 // Calcula el saldo actual de las arcas a partir de las transacciones.
@@ -109,6 +110,10 @@ export const getCommunity = asyncHandler(async (req, res) => {
 
   const { president, administrators } = await getLeadership(community._id);
 
+  const announcements = await Announcement.find({ community: community._id })
+    .sort({ pinned: -1, createdAt: -1 })
+    .limit(3);
+
   res.json({
     community: { ...community.toObject(), president, administrators },
     role: req.communityRole,
@@ -118,6 +123,7 @@ export const getCommunity = asyncHandler(async (req, res) => {
     lastHeldMeeting,
     pendingTopics,
     resolvedTopics,
+    announcements,
   });
 });
 

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Crown, ShieldCheck, User, Plus, Trash2, Copy, Check, Mail, X, Pencil } from 'lucide-react';
+import { Crown, ShieldCheck, User, Plus, Trash2, Copy, Check, Mail, X, Pencil, Send } from 'lucide-react';
 import api from '@/lib/api';
 import { useCommunities } from '@/context/CommunityContext';
 import { PageHeader } from '@/components/PageHeader';
@@ -52,6 +52,7 @@ export default function Members() {
   });
   const [error, setError] = useState('');
   const [copiedId, setCopiedId] = useState(null);
+  const [notice, setNotice] = useState('');
   const [editing, setEditing] = useState(null);
   const [editForm, setEditForm] = useState({
     unit: '',
@@ -89,6 +90,24 @@ export default function Members() {
       load();
     } catch (err) {
       setError(err.response?.data?.message || 'No se pudo crear la invitación');
+    }
+  };
+
+  const flashNotice = (text) => {
+    setNotice(text);
+    setTimeout(() => setNotice(''), 4000);
+  };
+
+  const resend = async (inv) => {
+    try {
+      const { data } = await api.post(`/communities/${activeId}/invitations/${inv._id}/resend`);
+      flashNotice(
+        data.emailDelivered
+          ? `Invitación reenviada a ${inv.email}`
+          : 'Reenviada (modo dev: el email se registra en consola, no se envía).'
+      );
+    } catch (err) {
+      flashNotice(err.response?.data?.message || 'No se pudo reenviar');
     }
   };
 
@@ -168,6 +187,10 @@ export default function Members() {
         }
       />
 
+      {notice && (
+        <div className="mb-4 rounded-md bg-emerald-50 px-4 py-2 text-sm text-emerald-700">{notice}</div>
+      )}
+
       {loading ? (
         <p className="text-muted-foreground">Cargando…</p>
       ) : (
@@ -211,6 +234,9 @@ export default function Members() {
                             <Copy className="h-4 w-4" /> Copiar enlace
                           </>
                         )}
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => resend(inv)}>
+                        <Send className="h-4 w-4" /> Reenviar
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => revoke(inv)}>
                         <X className="h-4 w-4 text-destructive" />

@@ -10,6 +10,9 @@ import Meetings from './pages/Meetings';
 import Topics from './pages/Topics';
 import Funds from './pages/Funds';
 import Members from './pages/Members';
+import Documents from './pages/Documents';
+import Incidents from './pages/Incidents';
+import Announcements from './pages/Announcements';
 import Settings from './pages/Settings';
 
 export default function App() {
@@ -37,8 +40,11 @@ export default function App() {
         <Route index element={<Dashboard />} />
         <Route path="juntas" element={<Meetings />} />
         <Route path="temas" element={<Topics />} />
+        <Route path="incidencias" element={<Incidents />} />
+        <Route path="avisos" element={<Announcements />} />
         <Route path="arcas" element={<Funds />} />
         <Route path="vecinos" element={<Members />} />
+        <Route path="documentos" element={<Documents />} />
         <Route path="ajustes" element={<Settings />} />
       </Route>
     </Routes>

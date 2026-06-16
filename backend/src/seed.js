@@ -9,6 +9,9 @@ import Invitation from './models/Invitation.js';
 import Meeting from './models/Meeting.js';
 import Topic from './models/Topic.js';
 import Transaction from './models/Transaction.js';
+import Incident from './models/Incident.js';
+import Document from './models/Document.js';
+import Announcement from './models/Announcement.js';
 
 function daysFromNow(days) {
   const d = new Date();
@@ -30,6 +33,9 @@ async function seed() {
     Meeting.deleteMany({}),
     Topic.deleteMany({}),
     Transaction.deleteMany({}),
+    Incident.deleteMany({}),
+    Document.deleteMany({}),
+    Announcement.deleteMany({}),
   ]);
 
   console.log('Creando organización (administradora)...');
@@ -151,9 +157,9 @@ async function seed() {
   await Topic.create([
     {
       community: olivos._id,
-      title: 'Modernización del ascensor',
+      title: 'Aprobar derrama para modernizar el ascensor',
       description:
-        'El ascensor sufre averías frecuentes. Pendiente de aprobar la derrama en la próxima junta.',
+        'Decisión a votar en junta: aprobar la derrama para la modernización del ascensor (las averías recurrentes se gestionan como incidencia).',
       status: 'pending',
       createdBy: presidente._id,
     },
@@ -183,6 +189,46 @@ async function seed() {
       createdBy: adminFincas._id,
     },
   ]);
+
+  console.log('Creando incidencias (los tres estados)...');
+  await Incident.create([
+    {
+      community: olivos._id,
+      title: 'Gotera en el garaje',
+      description: 'Filtración de agua sobre la plaza 12 cuando llueve.',
+      status: 'open',
+      createdBy: propietarios[0].user._id,
+    },
+    {
+      community: olivos._id,
+      title: 'Ascensor averiado: la puerta no cierra bien',
+      description: 'El ascensor se queda parado en la planta baja con frecuencia.',
+      status: 'in_progress',
+      createdBy: propietarios[1].user._id,
+      assignedTo: adminFincas._id,
+      comments: [
+        { author: adminFincas._id, text: 'Avisado el técnico de ascensores, vienen el jueves.' },
+      ],
+    },
+    {
+      community: olivos._id,
+      title: 'Bombilla fundida en el portal',
+      description: 'La luz de la entrada lleva días sin funcionar.',
+      status: 'resolved',
+      createdBy: propietarios[2].user._id,
+      assignedTo: adminFincas._id,
+      comments: [{ author: adminFincas._id, text: 'Sustituida por una LED. Resuelto.' }],
+    },
+  ]);
+
+  console.log('Creando aviso de ejemplo...');
+  await Announcement.create({
+    community: olivos._id,
+    title: 'Corte de agua programado el próximo martes',
+    body: 'De 9:00 a 13:00 por mantenimiento de la red. Disculpen las molestias.',
+    pinned: true,
+    createdBy: presidente._id,
+  });
 
   console.log('Creando movimientos de las arcas...');
   await Transaction.create([

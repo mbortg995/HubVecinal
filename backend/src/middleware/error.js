@@ -14,6 +14,13 @@ export function errorHandler(err, req, res, next) {
     return res.status(409).json({ message: `Ya existe un registro con ese ${field}` });
   }
 
+  // Error de subida de archivos (multer), p.ej. fichero demasiado grande.
+  if (err.name === 'MulterError') {
+    const msg =
+      err.code === 'LIMIT_FILE_SIZE' ? 'El archivo supera el tamaño máximo permitido' : err.message;
+    return res.status(400).json({ message: msg });
+  }
+
   // Error de validación de Mongoose.
   if (err.name === 'ValidationError') {
     const messages = Object.values(err.errors).map((e) => e.message);

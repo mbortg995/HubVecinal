@@ -10,6 +10,9 @@ import {
   Settings,
   LogOut,
   Plus,
+  FileText,
+  AlertCircle,
+  Megaphone,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -23,10 +26,13 @@ import { cn } from '@/lib/utils';
 
 const navItems = [
   { to: '/', label: 'Inicio', icon: LayoutDashboard, end: true },
+  { to: '/incidencias', label: 'Incidencias', icon: AlertCircle },
+  { to: '/avisos', label: 'Avisos', icon: Megaphone },
   { to: '/juntas', label: 'Juntas', icon: CalendarDays },
   { to: '/temas', label: 'Temas', icon: ListTodo },
   { to: '/arcas', label: 'Arcas comunes', icon: Wallet },
   { to: '/vecinos', label: 'Vecinos', icon: Users },
+  { to: '/documentos', label: 'Documentos', icon: FileText },
   { to: '/ajustes', label: 'Ajustes', icon: Settings },
 ];
 
