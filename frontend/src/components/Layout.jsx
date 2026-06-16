@@ -10,6 +10,7 @@ import {
   Settings,
   LogOut,
   Plus,
+  FileText,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -27,6 +28,7 @@ const navItems = [
   { to: '/temas', label: 'Temas', icon: ListTodo },
   { to: '/arcas', label: 'Arcas comunes', icon: Wallet },
   { to: '/vecinos', label: 'Vecinos', icon: Users },
+  { to: '/documentos', label: 'Documentos', icon: FileText },
   { to: '/ajustes', label: 'Ajustes', icon: Settings },
 ];
 

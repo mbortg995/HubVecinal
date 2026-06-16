@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, requireSuperadmin } from '../middleware/auth.js';
 import { loadCommunity, requireManage } from '../middleware/community.js';
+import { upload } from '../middleware/upload.js';
 import {
   createCommunity,
   myCommunities,
@@ -24,6 +25,12 @@ import {
   deleteMeeting,
 } from '../controllers/meetingController.js';
 import { listTopics, createTopic, updateTopic, deleteTopic } from '../controllers/topicController.js';
+import {
+  listDocuments,
+  uploadDocument,
+  downloadDocument,
+  deleteDocument,
+} from '../controllers/documentController.js';
 import {
   listTransactions,
   createTransaction,
@@ -67,6 +74,12 @@ router.get('/:communityId/topics', listTopics);
 router.post('/:communityId/topics', requireManage, createTopic);
 router.patch('/:communityId/topics/:topicId', requireManage, updateTopic);
 router.delete('/:communityId/topics/:topicId', requireManage, deleteTopic);
+
+// Documentos.
+router.get('/:communityId/documents', listDocuments);
+router.post('/:communityId/documents', requireManage, upload.single('file'), uploadDocument);
+router.get('/:communityId/documents/:documentId/download', downloadDocument);
+router.delete('/:communityId/documents/:documentId', requireManage, deleteDocument);
 
 // Arcas comunes (movimientos).
 router.get('/:communityId/transactions', listTransactions);

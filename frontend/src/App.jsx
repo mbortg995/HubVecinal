@@ -10,6 +10,7 @@ import Meetings from './pages/Meetings';
 import Topics from './pages/Topics';
 import Funds from './pages/Funds';
 import Members from './pages/Members';
+import Documents from './pages/Documents';
 import Settings from './pages/Settings';
 
 export default function App() {
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="temas" element={<Topics />} />
         <Route path="arcas" element={<Funds />} />
         <Route path="vecinos" element={<Members />} />
+        <Route path="documentos" element={<Documents />} />
         <Route path="ajustes" element={<Settings />} />
       </Route>
     </Routes>
