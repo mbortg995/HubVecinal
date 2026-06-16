@@ -37,18 +37,24 @@ export default function Documents() {
   const [file, setFile] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [q, setQ] = useState('');
   const fileInput = useRef(null);
 
   const load = useCallback(() => {
     if (!activeId) return;
     setLoading(true);
+    const qs = q.trim() ? `?q=${encodeURIComponent(q.trim())}` : '';
     api
-      .get(`/communities/${activeId}/documents`)
+      .get(`/communities/${activeId}/documents${qs}`)
       .then(({ data }) => setDocuments(data.documents))
       .finally(() => setLoading(false));
-  }, [activeId]);
+  }, [activeId, q]);
 
-  useEffect(() => load(), [load]);
+  // Búsqueda con un pequeño retardo para no llamar en cada tecla.
+  useEffect(() => {
+    const t = setTimeout(() => load(), 250);
+    return () => clearTimeout(t);
+  }, [load]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -108,12 +114,20 @@ export default function Documents() {
         }
       />
 
+      <div className="mb-4">
+        <Input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Buscar en documentos (nombre y contenido de los PDF)…"
+        />
+      </div>
+
       {loading ? (
         <p className="text-muted-foreground">Cargando…</p>
       ) : documents.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-muted-foreground">
-            Todavía no hay documentos.
+            {q.trim() ? 'Sin resultados para tu búsqueda.' : 'Todavía no hay documentos.'}
           </CardContent>
         </Card>
       ) : (
@@ -132,6 +146,11 @@ export default function Documents() {
                       {doc.size ? ` · ${humanSize(doc.size)}` : ''}
                       {doc.uploadedBy?.name ? ` · ${doc.uploadedBy.name}` : ''}
                     </p>
+                    {doc.textPreview && (
+                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground/80">
+                        {doc.textPreview}…
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

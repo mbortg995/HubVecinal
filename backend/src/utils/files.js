@@ -20,6 +20,21 @@ export function streamFile(res, filename, originalName, mimeType) {
   fs.createReadStream(filePath).pipe(res);
 }
 
+// Extrae el texto de un PDF local (capa de texto) con unpdf. Sin IA ni
+// servicios externos. Devuelve '' si falla o no hay texto (escaneado →
+// futuro fallback OCR local).
+export async function extractPdfText(filename) {
+  try {
+    const { getDocumentProxy, extractText } = await import('unpdf');
+    const buffer = new Uint8Array(fs.readFileSync(resolvePath(filename)));
+    const pdf = await getDocumentProxy(buffer);
+    const { text } = await extractText(pdf, { mergePages: true });
+    return (text || '').replace(/\s+/g, ' ').trim();
+  } catch {
+    return '';
+  }
+}
+
 // Borra un fichero del almacenamiento (silencioso si no existe).
 export function deleteFile(filename) {
   if (!filename) return;

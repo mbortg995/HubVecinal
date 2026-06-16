@@ -3,7 +3,7 @@ import Membership from '../models/Membership.js';
 import Document from '../models/Document.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { sendEmail, baseTemplate } from '../utils/email.js';
-import { deleteFile } from '../utils/files.js';
+import { deleteFile, extractPdfText } from '../utils/files.js';
 
 // Normaliza el orden del día recibido del cliente (conserva _id si viene).
 function normalizeAgenda(agenda) {
@@ -288,6 +288,7 @@ export const uploadActa = asyncHandler(async (req, res) => {
     if (prev) deleteFile(prev.filename);
   }
 
+  const text = req.file.mimetype === 'application/pdf' ? await extractPdfText(req.file.filename) : '';
   const doc = await Document.create({
     community: req.community._id,
     name: `Acta · ${meeting.title}`,
@@ -296,6 +297,7 @@ export const uploadActa = asyncHandler(async (req, res) => {
     originalName: req.file.originalname,
     mimeType: req.file.mimetype,
     size: req.file.size,
+    text,
     uploadedBy: req.user._id,
   });
   meeting.acta = doc._id;
